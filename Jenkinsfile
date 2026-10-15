@@ -1,20 +1,45 @@
 pipeline {
     agent any
 
+    tools {
+        maven 'Maven3'
+        jdk 'JDK17'
+    }
+
     stages {
-        stage('Git Checkout') {
+        stage('1 - Git Checkout') {
             steps {
                 checkout scm
             }
         }
 
-        stage('Verify Checkout') {
+        stage('2 - Maven Clean') {
             steps {
-                sh 'pwd'
-                sh 'ls -la'
-                sh 'git log -1 --oneline'
-                sh 'test -f pom.xml && echo "pom.xml found: checkout OK" || (echo "pom.xml NOT found" && exit 1)'
+                sh 'mvn clean'
             }
         }
+
+        stage('3 - Build Artifact') {
+            steps {
+                sh 'mvn package -DskipTests'
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+                }
+            }
+        }
+
+        stage('4 - Unit Tests') {
+            steps {
+                sh 'mvn test jacoco:report'
+            }
+            post {
+                always {
+                    junit 'target/surefire-reports/*.xml'
+                }
+            }
+        }
+
     }
 }
