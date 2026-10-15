@@ -40,6 +40,18 @@ pipeline {
                 }
             }
         }
+        stage('5 - SonarQube Analysis') {
+            steps {
+                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                    sh '''
+                        mvn sonar:sonar \
+                        -Dsonar.token=$SONAR_TOKEN \
+                        -Dsonar.host.url=http://sonarqube:9000 \
+                        -Dsonar.projectKey=student-management
+                    '''
+                }
+            }
+        }
 
     }
 }
