@@ -63,18 +63,33 @@ pipeline {
                     )
                 ]) {
                     sh '''
-                        ./mvnw deploy:deploy-file \
-                        -Dfile=target/student-management-0.0.1-SNAPSHOT.jar \
-                        -DpomFile=pom.xml \
-                        -DrepositoryId=nexus \
-                        -Durl=http://host.docker.internal:8081/repository/maven-snapshots/ \
-                        -DgroupId=tn.esprit \
-                        -DartifactId=student-management \
-                        -Dversion=0.0.1-SNAPSHOT \
-                        -Dpackaging=jar \
-                        -DgeneratePom=false \
-                        -Dusername="$NEXUS_USERNAME" \
-                        -Dpassword="$NEXUS_PASSWORD"
+                        set -eu
+                        umask 077
+                        settings_file="$PWD/.nexus-settings.xml"
+                        trap 'rm -f "$settings_file"' EXIT
+
+                        cat > "$settings_file" <<EOF
+                        <settings>
+                          <servers>
+                            <server>
+                              <id>nexus</id>
+                              <username>${NEXUS_USERNAME}</username>
+                              <password>${NEXUS_PASSWORD}</password>
+                            </server>
+                          </servers>
+                        </settings>
+                        EOF
+
+                        ./mvnw -s "$settings_file" deploy:deploy-file \
+                          -Dfile=target/student-management-0.0.1-SNAPSHOT.jar \
+                          -DpomFile=pom.xml \
+                          -DrepositoryId=nexus \
+                          -Durl=http://host.docker.internal:8081/repository/maven-snapshots/ \
+                          -DgroupId=tn.esprit \
+                          -DartifactId=student-management \
+                          -Dversion=0.0.1-SNAPSHOT \
+                          -Dpackaging=jar \
+                          -DgeneratePom=false
                     '''
                 }
             }
