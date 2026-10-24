@@ -68,17 +68,16 @@ pipeline {
                         settings_file="$PWD/.nexus-settings.xml"
                         trap 'rm -f "$settings_file"' EXIT
 
-                        cat > "$settings_file" <<EOF
-                        <settings>
-                          <servers>
-                            <server>
-                              <id>nexus</id>
-                              <username>${NEXUS_USERNAME}</username>
-                              <password>${NEXUS_PASSWORD}</password>
-                            </server>
-                          </servers>
-                        </settings>
-                        EOF
+                        printf '%s\n' \
+                          '<settings>' \
+                          '  <servers>' \
+                          '    <server>' \
+                          '      <id>nexus</id>' \
+                          "      <username>${NEXUS_USERNAME}</username>" \
+                          "      <password>${NEXUS_PASSWORD}</password>" \
+                          '    </server>' \
+                          '  </servers>' \
+                          '</settings>' > "$settings_file"
 
                         ./mvnw -s "$settings_file" deploy:deploy-file \
                           -Dfile=target/student-management-0.0.1-SNAPSHOT.jar \
