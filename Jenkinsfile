@@ -15,13 +15,14 @@ pipeline {
 
         stage('2 - Maven Clean') {
             steps {
-                bat 'mvnw.cmd clean'
+                sh 'chmod +x mvnw'
+                sh './mvnw clean'
             }
         }
 
         stage('3 - Build Artifact') {
             steps {
-                bat 'mvnw.cmd package -DskipTests'
+                sh './mvnw package -DskipTests'
             }
             post {
                 success {
@@ -32,7 +33,7 @@ pipeline {
 
         stage('4 - Unit Tests') {
             steps {
-                bat 'mvnw.cmd test jacoco:report'
+                sh './mvnw test jacoco:report'
             }
             post {
                 always {
@@ -43,10 +44,10 @@ pipeline {
         stage('5 - SonarQube Analysis') {
             steps {
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    bat '''
-                        mvnw.cmd sonar:sonar ^
-                        -Dsonar.token=%SONAR_TOKEN% ^
-                        -Dsonar.host.url=http://localhost:9000 ^
+                    sh '''
+                        ./mvnw sonar:sonar \
+                        -Dsonar.token=$SONAR_TOKEN \
+                        -Dsonar.host.url=http://host.docker.internal:9000 \
                         -Dsonar.projectKey=student-management
                     '''
                 }
