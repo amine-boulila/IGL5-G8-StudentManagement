@@ -67,7 +67,7 @@ pipeline {
                         -Dfile=target/student-management-0.0.1-SNAPSHOT.jar \
                         -DpomFile=pom.xml \
                         -DrepositoryId=nexus \
-                        -Durl=http://host.docker.internal:8081/repository/student-management-releases/ \
+                        -Durl=http://host.docker.internal:8081/repository/maven-snapshots/ \
                         -DgroupId=tn.esprit \
                         -DartifactId=student-management \
                         -Dversion=0.0.1-SNAPSHOT \
