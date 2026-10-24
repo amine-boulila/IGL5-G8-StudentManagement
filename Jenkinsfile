@@ -45,7 +45,7 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     sh '''
-                        ./mvnw sonar:sonar \
+                        ./mvnw org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
                         -Dsonar.token=$SONAR_TOKEN \
                         -Dsonar.host.url=http://host.docker.internal:9000 \
                         -Dsonar.projectKey=student-management
