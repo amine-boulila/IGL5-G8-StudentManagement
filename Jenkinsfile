@@ -53,6 +53,31 @@ pipeline {
                 }
             }
         }
-
+        stage('Nexus Publish') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'nexus-credentials',
+                        usernameVariable: 'NEXUS_USERNAME',
+                        passwordVariable: 'NEXUS_PASSWORD'
+                    )
+                ]) {
+                    sh '''
+                        ./mvnw deploy:deploy-file \
+                        -Dfile=target/student-management-0.0.1-SNAPSHOT.jar \
+                        -DpomFile=pom.xml \
+                        -DrepositoryId=nexus \
+                        -Durl=http://host.docker.internal:8081/repository/student-management-releases/ \
+                        -DgroupId=tn.esprit \
+                        -DartifactId=student-management \
+                        -Dversion=0.0.1-SNAPSHOT \
+                        -Dpackaging=jar \
+                        -DgeneratePom=false \
+                        -Dusername="$NEXUS_USERNAME" \
+                        -Dpassword="$NEXUS_PASSWORD"
+                    '''
+                }
+            }
+        }
     }
 }
