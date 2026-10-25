@@ -5,7 +5,9 @@ pipeline {
         maven 'Maven3'
         jdk 'JDK17'
     }
-
+    environment {
+        DOCKER_REPO = 'louha9999/student-management'
+    }
     stages {
         stage('1 - Git Checkout') {
             steps {
@@ -73,7 +75,21 @@ pipeline {
 
         stage('7 - Building our image') {
             steps {
-                sh 'docker build -t student-management:${BUILD_NUMBER} -t student-management:latest .'
+                sh 'docker build -t $DOCKER_REPO:${BUILD_NUMBER} -t $DOCKER_REPO:latest .'
+            }
+        }
+        stage('Deploy our image') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub_cred',
+                                                usernameVariable: 'DOCKER_USER',
+                                                passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker push $DOCKER_REPO:${BUILD_NUMBER}
+                        docker push $DOCKER_REPO:latest
+                        docker logout
+                    '''
+                }
             }
         }
 
