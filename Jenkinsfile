@@ -27,6 +27,8 @@ pipeline {
     }
     environment {
         DOCKER_REPO = 'louha9999/student-management'
+        KUBECONFIG  = '/var/jenkins_home/.kube/config'
+
     }
     stages {
         stage('1 - Git Checkout') {
@@ -133,6 +135,19 @@ pipeline {
                                 terraform apply -auto-approve -input=false
                             '''
                         }
+                    }
+                }
+            }
+        }
+        stage('11 - Update Kubeconfig') {
+            steps {
+                script {
+                    withAwsLab {
+                        sh '''
+                            mkdir -p "$(dirname $KUBECONFIG)"
+                            aws eks update-kubeconfig --name devops-eks --region us-east-1
+                            kubectl get nodes
+                        '''
                     }
                 }
             }
