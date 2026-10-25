@@ -362,6 +362,21 @@ pipeline {
                         echo "Applying Kubernetes manifests..."
                         kubectl apply -f kubernetes/
 
+                        echo "Waiting for the MySQL volume to bind..."
+                        if ! kubectl wait \
+                            --for=jsonpath='{.status.phase}'=Bound \
+                            pvc/mysql-data \
+                            --timeout=180s; then
+                            kubectl describe pvc mysql-data
+                            exit 1
+                        fi
+
+                        echo "Waiting for MySQL to become ready..."
+                        kubectl rollout status deployment/mysql --timeout=180s
+
+                        echo "Waiting for the backend to become ready..."
+                        kubectl rollout status deployment/student-management --timeout=180s
+
                         echo "Checking deployments..."
                         kubectl get deployments
 
