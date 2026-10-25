@@ -16,7 +16,7 @@ spec:
         - name: student-management
           image: IMAGE_PLACEHOLDER
           ports:
-            - containerPort: 8080
+            - containerPort: 8089
           env:
             - name: SPRING_DATASOURCE_URL
               value: "jdbc:mysql://mysql:3306/studentdb?useSSL=false&allowPublicKeyRetrieval=true"
@@ -28,7 +28,7 @@ spec:
               value: "update"
           readinessProbe:
             tcpSocket:
-              port: 8080
+              port: 8089
             initialDelaySeconds: 30
             periodSeconds: 10
 ---
@@ -42,4 +42,4 @@ spec:
     app: student-management
   ports:
     - port: 80
-      targetPort: 8080
+      targetPort: 8089
