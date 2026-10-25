@@ -17,6 +17,15 @@ spec:
           image: IMAGE_PLACEHOLDER
           ports:
             - containerPort: 8080
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mysql://mysql:3306/studentdb?useSSL=false&allowPublicKeyRetrieval=true"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "root"
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: "rootpass"
+            - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+              value: "update"
           readinessProbe:
             tcpSocket:
               port: 8080

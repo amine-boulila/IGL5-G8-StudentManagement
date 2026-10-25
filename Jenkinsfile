@@ -152,11 +152,13 @@ pipeline {
                 }
             }
         }
-        stage('Deploy to AWS Kubernetes') {
+        stage('12 - Deploy to AWS Kubernetes') {
             steps {
                 script {
                     withAwsLab {
                         sh '''
+                            kubectl apply -f k8s/mysql.yaml
+                            kubectl rollout status deployment/mysql --timeout=180s
                             sed "s|IMAGE_PLACEHOLDER|$DOCKER_REPO:${BUILD_NUMBER}|" k8s/deployment.yaml | kubectl apply -f -
                             kubectl rollout status deployment/student-management --timeout=240s
                             kubectl get pods
