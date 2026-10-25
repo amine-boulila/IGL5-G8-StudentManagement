@@ -58,20 +58,10 @@ pipeline {
                                             usernameVariable: 'NEXUS_USER',
                                             passwordVariable: 'NEXUS_PASS')]) {
                 sh '''
-    cat > settings.xml <<EOF
-    <settings>
-    <servers>
-        <server>
-        <id>nexus</id>
-        <username>${NEXUS_USER}</username>
-        <password>${NEXUS_PASS}</password>
-        </server>
-    </servers>
-    </settings>
-    EOF
-    mvn deploy -DskipTests -s settings.xml
-    rm -f settings.xml
-                '''
+                        printf '<settings><servers><server><id>nexus</id><username>%s</username><password>%s</password></server></servers></settings>' "$NEXUS_USER" "$NEXUS_PASS" > settings.xml
+                        mvn deploy -DskipTests -s settings.xml
+                        rm -f settings.xml
+                    '''
             }
         }
     }
