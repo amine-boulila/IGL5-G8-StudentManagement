@@ -122,6 +122,21 @@ pipeline {
                 }
             }
         }
+        stage('10 - Setup Terraform') {
+            steps {
+                script {
+                    withAwsLab {
+                        dir('terraform') {
+                            sh '''
+                                terraform init -input=false
+                                terraform validate
+                                terraform apply -auto-approve -input=false
+                            '''
+                        }
+                    }
+                }
+            }
+        }
 
     }
 }
