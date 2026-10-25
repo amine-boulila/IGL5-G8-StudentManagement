@@ -1,7 +1,13 @@
 def withAwsLab(Closure body) {
     withCredentials([string(credentialsId: 'aws-lab-creds', variable: 'AWS_LAB_CREDS')]) {
         def credFile = "${env.WORKSPACE}/.aws-credentials"
-        writeFile file: credFile, text: env.AWS_LAB_CREDS + "\n"
+        sh '''
+            printf '%s' "$AWS_LAB_CREDS" \
+              | sed -E 's/\\[default\\]//; s/(aws_(access_key_id|secret_access_key|session_token))/\\n\\1/g' \
+              | sed -E 's/[[:space:]]+$//; /^$/d' > "$WORKSPACE/.aws-credentials.tmp"
+            { echo "[default]"; cat "$WORKSPACE/.aws-credentials.tmp"; } > "$WORKSPACE/.aws-credentials"
+            rm -f "$WORKSPACE/.aws-credentials.tmp"
+        '''
         withEnv(["AWS_SHARED_CREDENTIALS_FILE=${credFile}",
                  "AWS_DEFAULT_REGION=us-east-1"]) {
             try {
@@ -110,6 +116,7 @@ pipeline {
             steps {
                 script {
                     withAwsLab {
+                        sh "sed 's/=.*/=***/' $AWS_SHARED_CREDENTIALS_FILE"
                         sh 'aws sts get-caller-identity'
                     }
                 }
