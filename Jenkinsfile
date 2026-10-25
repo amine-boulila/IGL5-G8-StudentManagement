@@ -54,56 +54,22 @@ pipeline {
         }
         stage('Publish to Nexus') {
             steps {
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: 'nexus-creds',
-                        usernameVariable: 'NEXUS_USER',
-                        passwordVariable: 'NEXUS_PASSWORD'
-                    )
-                ]) {
-                    script {
-                        def xmlEscape = { value ->
-                            value.replace('&', '&amp;')
-                                 .replace('<', '&lt;')
-                                 .replace('>', '&gt;')
-                                 .replace('"', '&quot;')
-                                 .replace("'", '&apos;')
-                        }
+                withCredentials([usernamePassword(credentialsId: 'nexus-credentials',
+                                                usernameVariable: 'NEXUS_USER',
+                                                passwordVariable: 'NEXUS_PASS')]) {
+                    sh '''
+                        set -e
+                        printf '<settings><servers><server><id>nexus</id><username>%s</username><password>%s</password></server></servers></settings>' "$NEXUS_USER" "$NEXUS_PASS" > settings.xml
 
-                        writeFile file: 'jenkins-settings.xml',
-                            text: """<?xml version="1.0" encoding="UTF-8"?>
-<settings xmlns="http://maven.apache.org/SETTINGS/1.2.0">
-  <servers>
-    <server>
-      <id>nexus-snapshots</id>
-      <username>${xmlEscape(env.NEXUS_USER)}</username>
-      <password>${xmlEscape(env.NEXUS_PASSWORD)}</password>
-    </server>
-    <server>
-      <id>nexus-releases</id>
-      <username>${xmlEscape(env.NEXUS_USER)}</username>
-      <password>${xmlEscape(env.NEXUS_PASSWORD)}</password>
-    </server>
-  </servers>
-</settings>"""
+                        mvn -B -e deploy -DskipTests -s settings.xml \
+                        -DaltSnapshotDeploymentRepository=nexus::default::http://nexus:8081/repository/maven-snapshots/ \
+                        -DaltReleaseDeploymentRepository=nexus::default::http://nexus:8081/repository/maven-releases/
 
-                        try {
-                            sh '''
-                                set +x
-                                mvn -s jenkins-settings.xml deploy \
-                                  -DskipTests \
-                                  -DaltSnapshotDeploymentRepository=nexus-snapshots::http://host.docker.internal:8081/repository/maven-snapshots/ \
-                                  -DaltReleaseDeploymentRepository=nexus-releases::http://host.docker.internal:8081/repository/maven-releases/
-                            '''
-                        } finally {
-                            sh 'rm -f jenkins-settings.xml'
-                        }
-                    }
+                        rm -f settings.xml
+                    '''
                 }
             }
         }
-
-    }
 
     }
 }
