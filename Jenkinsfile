@@ -1,6 +1,14 @@
 pipeline {
     agent any
 
+    parameters {
+        string(
+            name: 'DOCKERHUB_IMAGE',
+            defaultValue: '',
+            description: 'Docker Hub image, for example yourusername/student-management'
+        )
+    }
+
     tools {
         maven 'Maven3'
         jdk 'JDK17'
@@ -89,6 +97,44 @@ pipeline {
                           -Dversion=0.0.1-SNAPSHOT \
                           -Dpackaging=jar \
                           -DgeneratePom=false
+                    '''
+                }
+            }
+        }
+        stage('Docker Build') {
+            steps {
+                sh '''
+                    set -eu
+                    docker build \
+                      --tag student-management:${BUILD_NUMBER} \
+                      .
+                '''
+            }
+        }
+        stage('Docker Hub Publish') {
+            when {
+                expression {
+                    params.DOCKERHUB_IMAGE?.trim()
+                }
+            }
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKERHUB_USERNAME',
+                        passwordVariable: 'DOCKERHUB_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        set -eu
+                        image="${DOCKERHUB_IMAGE}:${BUILD_NUMBER}"
+                        latest_image="${DOCKERHUB_IMAGE}:latest"
+                        printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+                        trap 'docker logout >/dev/null 2>&1 || true' EXIT
+                        docker tag "student-management:${BUILD_NUMBER}" "$image"
+                        docker tag "student-management:${BUILD_NUMBER}" "$latest_image"
+                        docker push "$image"
+                        docker push "$latest_image"
                     '''
                 }
             }
