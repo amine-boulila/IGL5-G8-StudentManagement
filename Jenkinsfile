@@ -1,3 +1,17 @@
+def withAwsLab(Closure body) {
+    withCredentials([string(credentialsId: 'aws-lab-creds', variable: 'AWS_LAB_CREDS')]) {
+        def credFile = "${env.WORKSPACE}/.aws-credentials"
+        writeFile file: credFile, text: env.AWS_LAB_CREDS + "\n"
+        withEnv(["AWS_SHARED_CREDENTIALS_FILE=${credFile}",
+                 "AWS_DEFAULT_REGION=us-east-1"]) {
+            try {
+                body()
+            } finally {
+                sh "rm -f '${credFile}'"
+            }
+        }
+    }
+}
 pipeline {
     agent any
 
@@ -78,7 +92,7 @@ pipeline {
                 sh 'docker build -t $DOCKER_REPO:${BUILD_NUMBER} -t $DOCKER_REPO:latest .'
             }
         }
-        stage('Deploy our image') {
+        stage('8 -Deploy our image') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub_cred',
                                                 usernameVariable: 'DOCKER_USER',
@@ -89,6 +103,15 @@ pipeline {
                         docker push $DOCKER_REPO:latest
                         docker logout
                     '''
+                }
+            }
+        }
+        stage('9 - Test AWS Credentials') {
+            steps {
+                script {
+                    withAwsLab {
+                        sh 'aws sts get-caller-identity'
+                    }
                 }
             }
         }
