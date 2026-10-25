@@ -2,6 +2,10 @@ aws_region        = "us-east-1"
 cluster_name      = "student-management-eks"
 kubernetes_version = "1.31"
 
+# Supply existing IAM role ARNs. Terraform does not create or manage these roles.
+cluster_role_arn = "arn:aws:iam::123456789012:role/existing-eks-cluster-role"
+node_role_arn    = "arn:aws:iam::123456789012:role/existing-eks-node-role"
+
 # Keep this file free of access keys and other secrets.
 node_instance_types = ["t3.small"]
 node_min_size       = 1

@@ -10,6 +10,16 @@ variable "cluster_name" {
   default     = "student-management-eks"
 }
 
+variable "cluster_role_arn" {
+  description = "ARN of an existing IAM role for the EKS control plane."
+  type        = string
+}
+
+variable "node_role_arn" {
+  description = "ARN of an existing IAM role for the EKS managed node group."
+  type        = string
+}
+
 variable "kubernetes_version" {
   description = "Kubernetes version for the EKS control plane and managed node group."
   type        = string
