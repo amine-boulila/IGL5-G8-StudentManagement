@@ -52,7 +52,7 @@ pipeline {
                 }
             }
         }
-        stage('Publish to Nexus') {
+        stage('6 - Publish to Nexus') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'nexus-credentials',
                                                 usernameVariable: 'NEXUS_USER',
@@ -68,6 +68,12 @@ pipeline {
                         rm -f settings.xml
                     '''
                 }
+            }
+        }
+
+        stage('7 - Building our image') {
+            steps {
+                sh 'docker build -t student-management:${BUILD_NUMBER} -t student-management:latest .'
             }
         }
 
