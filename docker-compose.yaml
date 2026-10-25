@@ -1,0 +1,37 @@
+services:
+  jenkins:
+    image: jenkins/jenkins:lts
+    container_name: jenkins
+    ports: ["8080:8080", "50000:50000"]
+    volumes: ["jenkins_home:/var/jenkins_home"]
+    networks: [devops-net]
+
+  sonarqube:
+    image: sonarqube:community
+    container_name: sonarqube
+    ports: ["9000:9000"]
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
+    networks: [devops-net]
+
+  nexus:
+    image: sonatype/nexus3
+    container_name: nexus
+    ports: ["8081:8081"]
+    volumes:
+      - nexus_data:/nexus-data
+    networks: [devops-net]
+
+volumes:
+  jenkins_home:
+    external: true
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
+  nexus_data:
+
+networks:
+  devops-net:
+    external: true

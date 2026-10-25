@@ -52,6 +52,29 @@ pipeline {
                 }
             }
         }
+        stage('Publish to Nexus') {
+        steps {
+            withCredentials([usernamePassword(credentialsId: 'nexus-credentials',
+                                            usernameVariable: 'NEXUS_USER',
+                                            passwordVariable: 'NEXUS_PASS')]) {
+                sh '''
+    cat > settings.xml <<EOF
+    <settings>
+    <servers>
+        <server>
+        <id>nexus</id>
+        <username>${NEXUS_USER}</username>
+        <password>${NEXUS_PASS}</password>
+        </server>
+    </servers>
+    </settings>
+    EOF
+    mvn deploy -DskipTests -s settings.xml
+    rm -f settings.xml
+                '''
+            }
+        }
+    }
 
     }
 }
