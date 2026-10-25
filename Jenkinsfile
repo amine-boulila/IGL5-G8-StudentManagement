@@ -152,6 +152,20 @@ pipeline {
                 }
             }
         }
+        stage('Deploy to AWS Kubernetes') {
+            steps {
+                script {
+                    withAwsLab {
+                        sh '''
+                            sed "s|IMAGE_PLACEHOLDER|$DOCKER_REPO:${BUILD_NUMBER}|" k8s/deployment.yaml | kubectl apply -f -
+                            kubectl rollout status deployment/student-management --timeout=240s
+                            kubectl get pods
+                            kubectl get svc student-management
+                        '''
+                    }
+                }
+            }
+        }
 
     }
 }
