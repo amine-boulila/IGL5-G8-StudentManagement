@@ -76,12 +76,33 @@ resource "aws_eks_cluster" "this" {
   tags = local.common_tags
 }
 
+# Allows pods (e.g. the EBS CSI controller) to reach the EC2 metadata service
+resource "aws_launch_template" "nodes" {
+  name_prefix = "${var.cluster_name}-nodes-"
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+    tags          = local.common_tags
+  }
+}
+
 resource "aws_eks_node_group" "this" {
   cluster_name    = aws_eks_cluster.this.name
   node_group_name = "${var.cluster_name}-nodes"
   node_role_arn   = var.node_role_arn
   subnet_ids      = aws_subnet.public[*].id
   instance_types  = var.node_instance_types
+
+  launch_template {
+    id      = aws_launch_template.nodes.id
+    version = aws_launch_template.nodes.latest_version
+  }
 
   scaling_config {
     min_size     = var.node_min_size
@@ -90,4 +111,11 @@ resource "aws_eks_node_group" "this" {
   }
 
   tags = local.common_tags
+}
+
+resource "aws_eks_addon" "ebs_csi" {
+  cluster_name = aws_eks_cluster.this.name
+  addon_name   = "aws-ebs-csi-driver"
+
+  depends_on = [aws_eks_node_group.this]
 }
