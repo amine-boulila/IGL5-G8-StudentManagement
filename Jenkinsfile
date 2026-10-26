@@ -1,3 +1,10 @@
+def withAwsCreds(Closure body) {
+    withCredentials([file(credentialsId: 'aws-lab-creds', variable: 'AWS_CREDS_FILE')]) {
+        withEnv(["AWS_SHARED_CREDENTIALS_FILE=${env.AWS_CREDS_FILE}"]) {
+            body()
+        }
+    }
+}
 
 pipeline {
     agent any
@@ -173,20 +180,7 @@ pipeline {
 
         stage('Test AWS Credentials') {
             steps {
-                withCredentials([
-                    string(
-                        credentialsId: 'aws-access-key-id',
-                        variable: 'AWS_ACCESS_KEY_ID'
-                    ),
-                    string(
-                        credentialsId: 'aws-secret-access-key',
-                        variable: 'AWS_SECRET_ACCESS_KEY'
-                    ),
-                    string(
-                        credentialsId: 'aws-session-token',
-                        variable: 'AWS_SESSION_TOKEN'
-                    )
-                ]) {
+                withAwsCreds {
                     sh '''
                         set +x
                         aws sts get-caller-identity
@@ -197,20 +191,7 @@ pipeline {
 
         stage('Terraform Init and Verify S3 State') {
             steps {
-                withCredentials([
-                    string(
-                        credentialsId: 'aws-access-key-id',
-                        variable: 'AWS_ACCESS_KEY_ID'
-                    ),
-                    string(
-                        credentialsId: 'aws-secret-access-key',
-                        variable: 'AWS_SECRET_ACCESS_KEY'
-                    ),
-                    string(
-                        credentialsId: 'aws-session-token',
-                        variable: 'AWS_SESSION_TOKEN'
-                    )
-                ]) {
+                withAwsCreds {
                     dir('terraform') {
                         sh '''
                             set +x
@@ -225,14 +206,12 @@ pipeline {
                             terraform state list > state-resources.txt
 
                             if [ ! -s state-resources.txt ]; then
-                                echo "ERROR: Terraform state contains no listed resources."
-                                echo "Check the S3 bucket, object key, and uploaded state."
-                                exit 1
+                                echo "Terraform state is empty. A new infrastructure deployment will be planned."
+                            else
+                                echo "Existing state detected:"
+                                cat state-resources.txt
                             fi
 
-                            cat state-resources.txt
-
-                            echo "Existing state detected."
                         '''
                     }
                 }
@@ -241,20 +220,7 @@ pipeline {
 
         stage('Terraform Plan') {
             steps {
-                withCredentials([
-                    string(
-                        credentialsId: 'aws-access-key-id',
-                        variable: 'AWS_ACCESS_KEY_ID'
-                    ),
-                    string(
-                        credentialsId: 'aws-secret-access-key',
-                        variable: 'AWS_SECRET_ACCESS_KEY'
-                    ),
-                    string(
-                        credentialsId: 'aws-session-token',
-                        variable: 'AWS_SESSION_TOKEN'
-                    )
-                ]) {
+                withAwsCreds {
                     dir('terraform') {
                         sh '''
                             set +x
@@ -281,20 +247,7 @@ pipeline {
 
         stage('Terraform Apply') {
             steps {
-                withCredentials([
-                    string(
-                        credentialsId: 'aws-access-key-id',
-                        variable: 'AWS_ACCESS_KEY_ID'
-                    ),
-                    string(
-                        credentialsId: 'aws-secret-access-key',
-                        variable: 'AWS_SECRET_ACCESS_KEY'
-                    ),
-                    string(
-                        credentialsId: 'aws-session-token',
-                        variable: 'AWS_SESSION_TOKEN'
-                    )
-                ]) {
+                withAwsCreds {
                     dir('terraform') {
                         sh '''
                             set +x
@@ -311,20 +264,7 @@ pipeline {
 
         stage('Update Kubeconfig') {
             steps {
-                withCredentials([
-                    string(
-                        credentialsId: 'aws-access-key-id',
-                        variable: 'AWS_ACCESS_KEY_ID'
-                    ),
-                    string(
-                        credentialsId: 'aws-secret-access-key',
-                        variable: 'AWS_SECRET_ACCESS_KEY'
-                    ),
-                    string(
-                        credentialsId: 'aws-session-token',
-                        variable: 'AWS_SESSION_TOKEN'
-                    )
-                ]) {
+                withAwsCreds {
                     sh '''
                         set +x
 
@@ -340,49 +280,53 @@ pipeline {
             }
         }
 
-        stage('Deploy to AWS Kubernetes') {
+        stage('Ensure EBS CSI Add-on') {
             steps {
-                withCredentials([
-                    string(
-                        credentialsId: 'aws-access-key-id',
-                        variable: 'AWS_ACCESS_KEY_ID'
-                    ),
-                    string(
-                        credentialsId: 'aws-secret-access-key',
-                        variable: 'AWS_SECRET_ACCESS_KEY'
-                    ),
-                    string(
-                        credentialsId: 'aws-session-token',
-                        variable: 'AWS_SESSION_TOKEN'
-                    )
-                ]) {
+                withAwsCreds {
                     sh '''
                         set +x
 
-                        echo "Applying Kubernetes manifests..."
-                        kubectl apply -f kubernetes/
-
-                        echo "Waiting for the MySQL volume to bind..."
-                        if ! kubectl wait \
-                            --for=jsonpath='{.status.phase}'=Bound \
-                            pvc/mysql-data \
-                            --timeout=180s; then
-                            kubectl describe pvc mysql-data
-                            exit 1
+                        if aws eks describe-addon \
+                            --cluster-name "$EKS_CLUSTER_NAME" \
+                            --addon-name aws-ebs-csi-driver \
+                            --region "$AWS_DEFAULT_REGION" >/dev/null 2>&1; then
+                            echo "AWS EBS CSI add-on is already installed."
+                        else
+                            echo "Installing AWS EBS CSI add-on..."
+                            aws eks create-addon \
+                                --cluster-name "$EKS_CLUSTER_NAME" \
+                                --addon-name aws-ebs-csi-driver \
+                                --region "$AWS_DEFAULT_REGION"
                         fi
 
-                        echo "Waiting for MySQL to become ready..."
-                        kubectl rollout status deployment/mysql --timeout=180s
+                        aws eks wait addon-active \
+                            --cluster-name "$EKS_CLUSTER_NAME" \
+                            --addon-name aws-ebs-csi-driver \
+                            --region "$AWS_DEFAULT_REGION"
+                    '''
+                }
+            }
+        }
 
-                        echo "Waiting for the backend to become ready..."
-                        kubectl rollout status deployment/student-management --timeout=180s
+        stage('Deploy to AWS Kubernetes') {
+            steps {
+                withAwsCreds {
+                    sh '''
+                        set +x
+
+                        echo "Deploying MySQL first..."
+                        kubectl apply -f kubernetes/mysql.yaml
+                        kubectl rollout status deployment/mysql --timeout=300s
+
+                        echo "Deploying the application and its service..."
+                        kubectl apply -f kubernetes/deployment.yaml
+                        kubectl apply -f kubernetes/service.yaml
+                        kubectl rollout status deployment/student-management --timeout=300s
 
                         echo "Checking deployments..."
                         kubectl get deployments
-
                         echo "Checking pods..."
                         kubectl get pods
-
                         echo "Checking services..."
                         kubectl get services
                     '''

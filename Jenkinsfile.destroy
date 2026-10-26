@@ -1,0 +1,92 @@
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        timeout(time: 30, unit: 'MINUTES')
+    }
+
+    environment {
+        AWS_DEFAULT_REGION = 'us-east-1'
+        EKS_CLUSTER_NAME = 'student-management-eks'
+        EKS_ROLE_NAME = 'LabRole'
+    }
+
+    stages {
+        stage('Confirm Destruction') {
+            steps {
+                input(
+                    message: 'Delete the Kubernetes resources and all Terraform-managed AWS infrastructure?',
+                    ok: 'Destroy resources'
+                )
+            }
+        }
+
+        stage('Checkout Git') {
+            steps {
+                git branch: 'feature/amine',
+                    credentialsId: 'github-creds',
+                    url: 'https://github.com/amine-boulila/IGL5-G8-StudentManagement.git'
+            }
+        }
+
+        stage('Destroy Resources') {
+            steps {
+                withCredentials([file(credentialsId: 'aws-lab-creds', variable: 'AWS_CREDS_FILE')]) {
+                    withEnv(["AWS_SHARED_CREDENTIALS_FILE=${env.AWS_CREDS_FILE}"]) {
+                        sh '''
+                        set -eu
+
+                        echo "Verifying AWS identity..."
+                        aws sts get-caller-identity
+
+                        echo "Initializing Terraform with the remote S3 state..."
+                        terraform -chdir=terraform init \
+                            -reconfigure \
+                            -input=false
+
+                        echo "Configuring kubectl for the EKS cluster..."
+                        aws eks update-kubeconfig \
+                            --region "$AWS_DEFAULT_REGION" \
+                            --name "$EKS_CLUSTER_NAME"
+
+                        echo "Deleting Kubernetes resources..."
+                        kubectl delete -f kubernetes/ \
+                            --ignore-not-found=true \
+                            --wait=true
+
+                        echo "Destroying Terraform-managed AWS resources..."
+                        AWS_ACCOUNT_ID=$(aws sts get-caller-identity \
+                            --query Account \
+                            --output text)
+                        EKS_ROLE_ARN="arn:aws:iam::${AWS_ACCOUNT_ID}:role/${EKS_ROLE_NAME}"
+
+                        terraform -chdir=terraform destroy \
+                            -input=false \
+                            -auto-approve \
+                            -var="cluster_role_arn=$EKS_ROLE_ARN" \
+                            -var="node_role_arn=$EKS_ROLE_ARN"
+
+                        echo "Final Terraform state:"
+                        terraform -chdir=terraform state list || true
+                        '''
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            deleteDir()
+        }
+
+        success {
+            echo 'Kubernetes resources and Terraform-managed AWS resources were destroyed.'
+        }
+
+        failure {
+            echo 'Destruction failed. Review the Jenkins console output before retrying.'
+        }
+    }
+}
