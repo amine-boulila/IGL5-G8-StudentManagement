@@ -3,6 +3,7 @@ pipeline {
 
     options {
         timestamps()
+        skipDefaultCheckout()   // evite la colonne "Declarative: Checkout SCM" en double
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
@@ -41,6 +42,21 @@ pipeline {
             post {
                 always {
                     junit 'target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('MVN SONARQUBE') {
+            steps {
+                // Analyse statique + couverture JaCoCo (target/site/jacoco/jacoco.xml)
+                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                    sh '''
+                        mvn -B sonar:sonar \
+                          -Dsonar.host.url=http://sonarqube:9000 \
+                          -Dsonar.token=$SONAR_TOKEN \
+                          -Dsonar.projectKey=student-management \
+                          -Dsonar.projectName=student-management
+                    '''
                 }
             }
         }
