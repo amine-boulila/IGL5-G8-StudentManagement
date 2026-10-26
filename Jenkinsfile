@@ -74,7 +74,7 @@ pipeline {
     <server><id>nexus-releases</id><username>${env.NEXUS_USER}</username><password>${env.NEXUS_PASS}</password></server>
   </servers>
 </settings>'''
-                    sh 'mvn -B deploy -DskipTests -s nexus-settings.xml'
+                    sh 'mvn -B deploy -DskipTests -s nexus-settings.xml -Daether.connector.http.preemptiveAuth=true'
                 }
             }
             post {
