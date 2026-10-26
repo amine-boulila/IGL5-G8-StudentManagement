@@ -7,6 +7,10 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
+    environment {
+        IMAGE_NAME = 'student-management'
+    }
+
     stages {
 
         stage('CHECKOUT GIT') {
@@ -80,6 +84,33 @@ pipeline {
             post {
                 always {
                     sh 'rm -f nexus-settings.xml'
+                }
+            }
+        }
+
+        stage('BUILDING OUR IMAGE') {
+            steps {
+                // Image taguee avec le numero du build + "latest"
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-cred',
+                                                  usernameVariable: 'DOCKER_USER',
+                                                  passwordVariable: 'DOCKER_PASS')]) {
+                    sh 'docker build -t $DOCKER_USER/$IMAGE_NAME:$BUILD_NUMBER -t $DOCKER_USER/$IMAGE_NAME:latest .'
+                }
+            }
+        }
+
+        stage('DEPLOY OUR IMAGE') {
+            steps {
+                // Push de l'image sur Docker Hub
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-cred',
+                                                  usernameVariable: 'DOCKER_USER',
+                                                  passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker push $DOCKER_USER/$IMAGE_NAME:$BUILD_NUMBER
+                        docker push $DOCKER_USER/$IMAGE_NAME:latest
+                        docker logout
+                    '''
                 }
             }
         }

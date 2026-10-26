@@ -1,0 +1,11 @@
+.git
+.idea
+.mvn
+devops
+src
+*.md
+target/*.original
+target/classes
+target/test-classes
+target/surefire-reports
+target/site
