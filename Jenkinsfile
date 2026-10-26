@@ -60,6 +60,29 @@ pipeline {
                 }
             }
         }
+
+        stage('PUBLISH TO NEXUS') {
+            steps {
+                // Publie le .jar dans Nexus (version SNAPSHOT -> depot maven-snapshots)
+                withCredentials([usernamePassword(credentialsId: 'nexus-cred',
+                                                  usernameVariable: 'NEXUS_USER',
+                                                  passwordVariable: 'NEXUS_PASS')]) {
+                    // settings.xml temporaire : les ids correspondent a <distributionManagement> du pom
+                    writeFile file: 'nexus-settings.xml', text: '''<settings>
+  <servers>
+    <server><id>nexus-snapshots</id><username>${env.NEXUS_USER}</username><password>${env.NEXUS_PASS}</password></server>
+    <server><id>nexus-releases</id><username>${env.NEXUS_USER}</username><password>${env.NEXUS_PASS}</password></server>
+  </servers>
+</settings>'''
+                    sh 'mvn -B deploy -DskipTests -s nexus-settings.xml'
+                }
+            }
+            post {
+                always {
+                    sh 'rm -f nexus-settings.xml'
+                }
+            }
+        }
     }
 
     post {
