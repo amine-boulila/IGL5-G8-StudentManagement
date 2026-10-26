@@ -51,7 +51,7 @@ pipeline {
                 // Analyse statique + couverture JaCoCo (target/site/jacoco/jacoco.xml)
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     sh '''
-                        mvn -B sonar:sonar \
+                        mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:5.1.0.4751:sonar \
                           -Dsonar.host.url=http://sonarqube:9000 \
                           -Dsonar.token=$SONAR_TOKEN \
                           -Dsonar.projectKey=student-management \
