@@ -8,7 +8,11 @@ pipeline {
     }
 
     environment {
-        IMAGE_NAME = 'student-management'
+        IMAGE_NAME   = 'student-management'
+        AWS_REGION   = 'us-east-1'
+        AWS_DEFAULT_REGION = 'us-east-1'
+        CLUSTER_NAME = 'student-management-eks'
+        TF_IN_AUTOMATION = 'true'
     }
 
     stages {
@@ -114,6 +118,33 @@ pipeline {
                 }
             }
         }
+
+        stage('TEST AWS CREDENTIALS') {
+            steps {
+                // Identifiants du Learner Lab (a mettre a jour a chaque session)
+                withCredentials(awsCreds()) {
+                    sh 'aws sts get-caller-identity'
+                }
+            }
+        }
+
+        stage('SETUP TERRAFORM') {
+            steps {
+                withCredentials(awsCreds()) {
+                    dir('terraform') {
+                        // Etat Terraform garde dans le volume Jenkins (survit aux builds)
+                        sh '''
+                            mkdir -p /var/jenkins_home/terraform-state
+                            terraform init -input=false -reconfigure \
+                              -backend-config="path=/var/jenkins_home/terraform-state/$CLUSTER_NAME.tfstate"
+                            terraform apply -auto-approve -input=false \
+                              -var="region=$AWS_REGION" \
+                              -var="cluster_name=$CLUSTER_NAME"
+                        '''
+                    }
+                }
+            }
+        }
     }
 
     post {
@@ -124,4 +155,17 @@ pipeline {
             echo 'Pipeline en echec : voir les logs de l etape en rouge'
         }
     }
+}
+
+// Identifiants AWS du Learner Lab :
+//  - 'aws-creds'         : credential de type "AWS Credentials" (plugin AWS Credentials) -> access key + secret key
+//  - 'aws-session-token' : credential "Secret text" -> session token (le Learner Lab donne des identifiants temporaires)
+def awsCreds() {
+    return [
+        [$class: 'AmazonWebServicesCredentialsBinding',
+         credentialsId: 'aws-creds',
+         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'],
+        string(credentialsId: 'aws-session-token', variable: 'AWS_SESSION_TOKEN')
+    ]
 }
