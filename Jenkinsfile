@@ -86,5 +86,58 @@ pipeline {
             }
         }
 
+        stage('9 - Test AWS Credentials') {
+            steps {
+                withCredentials([file(credentialsId: 'aws-credentials', variable: 'AWS_SHARED_CREDENTIALS_FILE')]) {
+                    sh 'aws sts get-caller-identity --region us-east-1'
+                }
+            }
+        }
+
+        stage('10 - Setup Terraform') {
+            steps {
+                withCredentials([file(credentialsId: 'aws-credentials', variable: 'AWS_SHARED_CREDENTIALS_FILE')]) {
+                    dir('terraform') {
+                        sh '''
+                            terraform init -input=false
+                            terraform validate
+                            terraform apply -auto-approve -input=false
+                        '''
+                    }
+                }
+            }
+        }
+
+        stage('11 - Update Kubeconfig') {
+            steps {
+                withCredentials([file(credentialsId: 'aws-credentials', variable: 'AWS_SHARED_CREDENTIALS_FILE')]) {
+                    sh '''
+                        aws eks update-kubeconfig --name student-management-eks --region us-east-1
+                        kubectl get nodes
+                    '''
+                }
+            }
+        }
+
+        stage('12 - Deploy to AWS Kubernetes') {
+            steps {
+                withCredentials([file(credentialsId: 'aws-credentials', variable: 'AWS_SHARED_CREDENTIALS_FILE'),
+                                 usernamePassword(credentialsId: 'dockerhub-credentials',
+                                                  usernameVariable: 'DOCKER_USER',
+                                                  passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        kubectl apply -f k8s/mysql.yaml
+                        kubectl rollout status deployment/mysql --timeout=180s
+                        sed "s|IMAGE_PLACEHOLDER|$DOCKER_USER/student-management:${BUILD_NUMBER}|" k8s/deployment.yaml | kubectl apply -f -
+                        kubectl apply -f k8s/service.yaml
+                        kubectl rollout status deployment/student-management --timeout=300s
+                        kubectl get pods
+                        NODE_IP=$(kubectl get nodes -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}')
+                        echo "Application URL: http://$NODE_IP:30000/student/students/getAllStudents"
+                    '''
+                }
+            }
+        }
+
     }
 }
