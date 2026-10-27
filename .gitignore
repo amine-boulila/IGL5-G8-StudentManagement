@@ -36,3 +36,16 @@ build/
 .env
 .env.*
 !.env.example
+
+# Local deployment secrets
+k8s/secret.yaml
+terraform/terraform.tfvars
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/.terraform.lock.hcl
+terraform/**/terraform.tfvars
+terraform/**/.terraform/
+terraform/**/*.tfstate
+terraform/**/*.tfstate.*
+terraform/**/.terraform.lock.hcl

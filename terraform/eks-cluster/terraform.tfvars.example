@@ -1,0 +1,8 @@
+aws_region         = "eu-west-1"
+cluster_name       = "student-management-eks"
+node_instance_type = "t3.small"
+desired_nodes      = 1
+aws_profile        = ""
+cluster_role_name  = "replace-with-your-lab-cluster-role-name"
+node_role_name     = "replace-with-your-lab-node-role-name"
+ebs_csi_role_name  = "LabRole"

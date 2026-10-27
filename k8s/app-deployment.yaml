@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: student-management
+  namespace: student-management
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: student-management
+  template:
+    metadata:
+      labels:
+        app: student-management
+    spec:
+      containers:
+        - name: student-management
+          image: maherkh/student-management:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8089
+          env:
+            - name: DB_URL
+              value: jdbc:mysql://mysql:3306/studentdb?createDatabaseIfNotExist=true
+            - name: DB_USERNAME
+              value: root
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: student-management-db
+                  key: DB_PASSWORD
+          readinessProbe:
+            tcpSocket:
+              port: 8089
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: 8089
+            initialDelaySeconds: 60
+            periodSeconds: 20
