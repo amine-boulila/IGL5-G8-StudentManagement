@@ -174,8 +174,14 @@ pipeline {
                             export AWS_DEFAULT_REGION=us-east-1
                             terraform init -input=false
                             terraform validate
-                            terraform plan -input=false
-                            terraform apply -auto-approve -var="aws_profile="
+                            terraform plan -input=false \
+                              -var="aws_region=us-east-1" \
+                              -var="aws_profile=" \
+                              -var="enable_ebs_csi=false"
+                            terraform apply -auto-approve \
+                              -var="aws_region=us-east-1" \
+                              -var="aws_profile=" \
+                              -var="enable_ebs_csi=false"
                         '''
                     }
                 }

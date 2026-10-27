@@ -114,6 +114,11 @@ Pod Identity or IRSA trust.
 Without that role, do not use the `gp3` PVC deployment below. Use the
 temporary `emptyDir` deployment instead.
 
+The Terraform pipeline disables EBS CSI by default with
+`enable_ebs_csi=false`, so it does not wait for this unhealthy addon during a
+temporary-storage demonstration. Set it to `true` only after a compatible IAM
+role is available.
+
 ## 2. Deploy the application to Kubernetes
 
 From the repository root:
@@ -243,6 +248,12 @@ order, including:
 
 Keep `terraform.tfstate` until `terraform destroy` completes successfully.
 It identifies the resources Terraform must remove.
+
+If Terraform was applied by Jenkins, create a separate Jenkins pipeline from
+the repository using `Jenkinsfile.destroy`. Set its
+`CONFIRM_DESTROY` parameter to `DESTROY`. The destroy job must use the same
+Jenkins workspace or a shared Terraform state backend that contains the state
+created by the apply job.
 
 ## 5. Verify cleanup
 

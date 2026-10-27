@@ -1,0 +1,93 @@
+pipeline {
+    agent any
+
+    parameters {
+        string(
+            name: 'CONFIRM_DESTROY',
+            defaultValue: '',
+            description: 'Type DESTROY to delete the EKS infrastructure'
+        )
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git(
+                    branch: 'feature/jenkins-pipeline',
+                    credentialsId: 'github-private-repo',
+                    url: 'https://github.com/amine-boulila/IGL5-G8-StudentManagement.git'
+                )
+            }
+        }
+
+        stage('Confirm destruction') {
+            steps {
+                script {
+                    if (params.CONFIRM_DESTROY != 'DESTROY') {
+                        error('Destruction cancelled. Set CONFIRM_DESTROY to DESTROY.')
+                    }
+                }
+            }
+        }
+
+        stage('Delete Kubernetes application') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-credentials',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    ),
+                    string(
+                        credentialsId: 'aws-session-token',
+                        variable: 'AWS_SESSION_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        set -eu
+                        export AWS_DEFAULT_REGION=us-east-1
+
+                        aws eks update-kubeconfig \
+                          --region "$AWS_DEFAULT_REGION" \
+                          --name student-management-eks
+                        kubectl delete namespace student-management \
+                          --ignore-not-found=true \
+                          --wait=true
+                    '''
+                }
+            }
+        }
+
+        stage('Destroy Terraform infrastructure') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-credentials',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    ),
+                    string(
+                        credentialsId: 'aws-session-token',
+                        variable: 'AWS_SESSION_TOKEN'
+                    )
+                ]) {
+                    dir('terraform/eks-cluster') {
+                        sh '''
+                            set -eu
+                            export AWS_DEFAULT_REGION=us-east-1
+
+                            terraform init -input=false
+                            terraform validate
+                            terraform plan -destroy -input=false \
+                              -var="aws_region=us-east-1" \
+                              -var="aws_profile="
+                            terraform destroy -auto-approve \
+                              -var="aws_region=us-east-1" \
+                              -var="aws_profile="
+                        '''
+                    }
+                }
+            }
+        }
+    }
+}

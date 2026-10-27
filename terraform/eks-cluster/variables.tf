@@ -1,6 +1,6 @@
 variable "aws_region" {
   type    = string
-  default = "eu-west-1"
+  default = "us-east-1"
 }
 
 variable "cluster_name" {
@@ -40,4 +40,10 @@ variable "ebs_csi_role_name" {
   type        = string
   description = "Pre-created role with EBS permissions for the EBS CSI addon."
   default     = "LabRole"
+}
+
+variable "enable_ebs_csi" {
+  type        = bool
+  description = "Enable the EBS CSI addon when a compatible IAM role is available."
+  default     = false
 }

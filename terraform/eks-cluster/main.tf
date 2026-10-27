@@ -7,6 +7,7 @@ data "aws_iam_role" "node" {
 }
 
 data "aws_iam_role" "ebs_csi" {
+  count = var.enable_ebs_csi ? 1 : 0
   name = var.ebs_csi_role_name
 }
 
@@ -88,7 +89,8 @@ resource "aws_eks_addon" "vpc_cni" {
 }
 
 resource "aws_eks_addon" "ebs_csi" {
+  count                    = var.enable_ebs_csi ? 1 : 0
   cluster_name             = aws_eks_cluster.this.name
   addon_name               = "aws-ebs-csi-driver"
-  service_account_role_arn = data.aws_iam_role.ebs_csi.arn
+  service_account_role_arn = data.aws_iam_role.ebs_csi[0].arn
 }

@@ -6,3 +6,4 @@ aws_profile        = ""
 cluster_role_name  = "replace-with-your-lab-cluster-role-name"
 node_role_name     = "replace-with-your-lab-node-role-name"
 ebs_csi_role_name  = "LabRole"
+enable_ebs_csi     = false
