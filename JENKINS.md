@@ -20,9 +20,16 @@ controller for a shared or production Jenkins instance.
 2. Revoke and replace any token previously pasted into a file, terminal, or
    chat. Never put a token in the Jenkinsfile or Git.
 3. If the GitHub repository is private, add a separate repository credential
-   to the Jenkins global store:
-   - In GitHub, create a fine-grained personal access token limited to this
-     repository, with **Contents: Read-only** permission.
+   to the Jenkins global store. You do not need to own the repository, but
+   your GitHub account must already have access to it:
+   - Create a fine-grained personal access token for the repository owner's
+     account or organization, select this repository, and grant
+     **Contents: Read-only** permission. The token can only use repositories
+     you can already access; it does not grant contributor access by itself.
+   - If GitHub requires organization approval for the token, ask the
+     repository or organization owner to approve it. If you cannot create or
+     authorize such a token, ask the owner to configure a read-only deploy key
+     or another repository credential for Jenkins.
    - In Jenkins, choose **Username with password**. Use your GitHub username
      as the username and the GitHub token as the password. Set the ID to
      `github-repo-read`.
@@ -38,9 +45,11 @@ controller for a shared or production Jenkins instance.
 If GitHub reports **Invalid username or token**, check that the selected
 credential is the GitHub **Username with password** credential, that the
 username is your GitHub username, and that the token has read access to this
-repository and has not expired or been revoked. Do not paste the token into
-chat or build logs. For a public repository, leave **Credentials** as
-**none** instead of supplying a token.
+repository and has not expired or been revoked. Confirm your collaborator
+access is still active and ask the repository owner or organization admin
+whether the token needs approval. Do not paste the token into chat or build
+logs. For a public repository, leave **Credentials** as **none** instead of
+supplying a token.
 
 The Jenkins container must be able to reach SonarQube at
 `http://host.docker.internal:9000`. This route was verified from the current
