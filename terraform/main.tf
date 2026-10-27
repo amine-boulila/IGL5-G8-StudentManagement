@@ -110,6 +110,10 @@ resource "aws_eks_node_group" "this" {
     max_size     = var.node_max_size
   }
 
+  lifecycle {
+    ignore_changes = [scaling_config[0].desired_size]
+  }
+
   tags = local.common_tags
 }
 

@@ -55,6 +55,15 @@ pipeline {
                             --ignore-not-found=true \
                             --wait=true
 
+                        # ONE-TIME CLEANUP: remove after this run (Terraform manages the add-on from now on)
+                        echo "Removing the manually created EBS CSI add-on..."
+                        aws eks delete-addon \
+                            --cluster-name "$EKS_CLUSTER_NAME" \
+                            --addon-name aws-ebs-csi-driver || true
+                        aws eks wait addon-deleted \
+                            --cluster-name "$EKS_CLUSTER_NAME" \
+                            --addon-name aws-ebs-csi-driver || true
+
                         echo "Destroying Terraform-managed AWS resources..."
                         AWS_ACCOUNT_ID=$(aws sts get-caller-identity \
                             --query Account \
