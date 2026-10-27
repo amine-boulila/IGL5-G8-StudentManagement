@@ -11,7 +11,7 @@ pipeline {
         stage('Build and test') {
             steps {
                 checkout scm
-                sh 'bash mvnw --batch-mode clean verify'
+                sh 'bash ./mvnw --batch-mode clean verify'
             }
             post {
                 always {
@@ -23,7 +23,7 @@ pipeline {
         stage('SonarQube analysis') {
             steps {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                    sh 'bash mvnw --batch-mode sonar:sonar -Dsonar.host.url=http://host.docker.internal:9000'
+                    sh 'bash ./mvnw --batch-mode sonar:sonar -Dsonar.host.url=http://host.docker.internal:9000'
                 }
             }
         }

@@ -4,6 +4,8 @@ The pipeline in [Jenkinsfile](./Jenkinsfile) checks out the private GitHub
 repository using the SCM URL, branch, and credential configured on the Jenkins
 job, runs the Maven wrapper, publishes JUnit test results, uploads the JaCoCo
 report through SonarQube analysis, and archives the packaged JAR.
+The wrapper is invoked as `bash ./mvnw` so it resolves `.mvn/wrapper` from the
+workspace root in Jenkins.
 
 ## Configure Jenkins
 
