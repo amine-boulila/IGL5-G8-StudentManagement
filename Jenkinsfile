@@ -1,6 +1,14 @@
 pipeline {
     agent any
 
+    parameters {
+        string(
+            name: 'GITHUB_BRANCH',
+            defaultValue: 'feature/ahmed-student-management',
+            description: 'Git branch to build from the private GitHub repository'
+        )
+    }
+
     options {
         disableConcurrentBuilds()
         timestamps()
@@ -9,7 +17,14 @@ pipeline {
     stages {
         stage('Build and test') {
             steps {
-                checkout scm
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: "*/${params.GITHUB_BRANCH}"]],
+                    userRemoteConfigs: [[
+                        credentialsId: 'github-repo-read',
+                        url: 'https://github.com/amine-boulila/IGL5-G8-StudentManagement.git'
+                    ]]
+                ])
                 sh 'bash mvnw --batch-mode clean verify'
             }
             post {
