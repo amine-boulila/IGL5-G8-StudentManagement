@@ -18,18 +18,23 @@ Open [http://localhost:9000](http://localhost:9000). On first login, use
 the password.
 
 In SonarQube, create a user token from **My Account > Security > Generate
-Tokens**. Keep the token private; do not commit it or share it in chat. In
-PowerShell, enter it securely for the current terminal session:
+Tokens**. Keep the token private; do not commit it or share it in chat. Copy
+only the token from SonarQube, then run this block in PowerShell. It reads
+the token directly from the clipboard instead of pasting into a secure prompt,
+which can insert a control character in some Windows terminals. The block
+clears the clipboard afterward if it still contains this token:
 
 ```powershell
-$secureToken = Read-Host "SonarQube token" -AsSecureString
-$tokenPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureToken)
+$token = $null
+$clipboardToken = $null
 try {
-    $token = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($tokenPointer).Trim()
+    $clipboardToken = Get-Clipboard -Raw
+    $token = $clipboardToken.Trim()
     if ([string]::IsNullOrWhiteSpace($token) -or $token -match '[\x00-\x1F\x7F]') {
-        throw "The token is empty or contains control characters. Copy it again and paste only the token."
+        throw "Clipboard is empty or contains control characters. Copy only the SonarQube token and try again."
     }
     $env:SONAR_TOKEN = $token
+    Set-Clipboard -Value ""
     $authHeaders = @{ Authorization = "Bearer $env:SONAR_TOKEN" }
     $auth = Invoke-RestMethod -Uri "http://localhost:9000/api/authentication/validate" -Headers $authHeaders
     if (-not $auth.valid) { throw "SonarQube rejected the token. Generate a new user token and try again." }
@@ -39,8 +44,10 @@ try {
 }
 finally {
     Remove-Item Env:\SONAR_TOKEN -ErrorAction SilentlyContinue
-    Remove-Variable token -ErrorAction SilentlyContinue
-    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($tokenPointer)
+    if ($null -ne $clipboardToken -and (Get-Clipboard -Raw).Trim() -ceq $token) {
+        Set-Clipboard -Value ""
+    }
+    Remove-Variable token, clipboardToken -ErrorAction SilentlyContinue
 }
 ```
 
