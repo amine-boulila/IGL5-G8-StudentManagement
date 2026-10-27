@@ -12,20 +12,35 @@ downloads the project's pinned Maven version through `mvnw`. This is suitable
 for this local coursework setup; use a separate build agent rather than the
 controller for a shared or production Jenkins instance.
 
-1. In Jenkins, open **Manage Jenkins > Credentials** and add a credential to
-   the global store:
+1. In Jenkins, open **Manage Jenkins > Credentials** and add a SonarQube
+   credential to the global store:
    - Kind: **Secret text**
    - Secret: a newly generated SonarQube user token
    - ID: `sonarqube-token`
 2. Revoke and replace any token previously pasted into a file, terminal, or
    chat. Never put a token in the Jenkinsfile or Git.
-3. Create a **Pipeline** job. Under **Pipeline**, choose **Pipeline script from
+3. If the GitHub repository is private, add a separate repository credential
+   to the Jenkins global store:
+   - In GitHub, create a fine-grained personal access token limited to this
+     repository, with **Contents: Read-only** permission.
+   - In Jenkins, choose **Username with password**. Use your GitHub username
+     as the username and the GitHub token as the password. Set the ID to
+     `github-repo-read`.
+   - Do not select the SonarQube `Secret text` credential for Git checkout,
+     and never put a token in the repository URL.
+4. Create a **Pipeline** job. Under **Pipeline**, choose **Pipeline script from
    SCM**, select **Git**, enter this repository's clone URL and the branch that
-   contains the Jenkinsfile, then set **Script Path** to `Jenkinsfile`.
-4. If the repository is private, configure a Jenkins Git credential with
-   read-only access. Do not put credentials in the clone URL.
+   contains the Jenkinsfile. If the repository is private, select
+   `github-repo-read` in **Credentials**. Set **Script Path** to `Jenkinsfile`.
 5. Save the job and select **Build Now**. Review the build log, JUnit test
    results, and archived JAR from the build page.
+
+If GitHub reports **Invalid username or token**, check that the selected
+credential is the GitHub **Username with password** credential, that the
+username is your GitHub username, and that the token has read access to this
+repository and has not expired or been revoked. Do not paste the token into
+chat or build logs. For a public repository, leave **Credentials** as
+**none** instead of supplying a token.
 
 The Jenkins container must be able to reach SonarQube at
 `http://host.docker.internal:9000`. This route was verified from the current
