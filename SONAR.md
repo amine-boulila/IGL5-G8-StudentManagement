@@ -25,7 +25,11 @@ PowerShell, enter it securely for the current terminal session:
 $secureToken = Read-Host "SonarQube token" -AsSecureString
 $tokenPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureToken)
 try {
-    $env:SONAR_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($tokenPointer)
+    $token = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($tokenPointer).Trim()
+    if ([string]::IsNullOrWhiteSpace($token) -or $token -match '[\x00-\x1F\x7F]') {
+        throw "The token is empty or contains control characters. Copy it again and paste only the token."
+    }
+    $env:SONAR_TOKEN = $token
     $authHeaders = @{ Authorization = "Bearer $env:SONAR_TOKEN" }
     $auth = Invoke-RestMethod -Uri "http://localhost:9000/api/authentication/validate" -Headers $authHeaders
     if (-not $auth.valid) { throw "SonarQube rejected the token. Generate a new user token and try again." }
@@ -35,6 +39,7 @@ try {
 }
 finally {
     Remove-Item Env:\SONAR_TOKEN -ErrorAction SilentlyContinue
+    Remove-Variable token -ErrorAction SilentlyContinue
     [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($tokenPointer)
 }
 ```
