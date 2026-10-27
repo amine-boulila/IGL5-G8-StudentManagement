@@ -1,6 +1,12 @@
 HELP.md
 target/
 .mvn/wrapper/maven-wrapper.jar
+
+### Terraform ###
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
 !**/src/main/**/target/
 !**/src/test/**/target/
 
