@@ -17,7 +17,9 @@ Copy-Item .env.example .env
 
 For local development, the example values work but are not suitable for a
 shared, public, or production environment. You can edit `.env` before starting;
-it is excluded from Git.
+it is excluded from Git. `MYSQL_USER` must be a non-root application account
+(for example, `studentmanagement`); the MySQL image does not allow
+`MYSQL_USER=root`. `MYSQL_ROOT_PASSWORD` is configured separately.
 
 ```powershell
 docker compose up --build -d
