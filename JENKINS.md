@@ -1,9 +1,9 @@
 # Jenkins pipeline setup
 
 The pipeline in [Jenkinsfile](./Jenkinsfile) checks out the private GitHub
-repository with the Jenkins credential `github-repo-read`, runs the Maven
-wrapper, publishes JUnit test results, uploads the JaCoCo report through
-SonarQube analysis, and archives the packaged JAR.
+repository using the SCM URL, branch, and credential configured on the Jenkins
+job, runs the Maven wrapper, publishes JUnit test results, uploads the JaCoCo
+report through SonarQube analysis, and archives the packaged JAR.
 
 ## Configure Jenkins
 
@@ -37,15 +37,12 @@ controller for a shared or production Jenkins instance.
    - Do not select the SonarQube `Secret text` credential for Git checkout,
      and never put a token in the repository URL.
 4. Create a **Pipeline** job. Under **Pipeline**, choose **Pipeline script from
-   SCM**, select **Git**, enter this repository's clone URL and the branch that
-   contains the Jenkinsfile, select `github-repo-read` in **Credentials**, and
-   set **Script Path** to `Jenkinsfile`. Jenkins needs this initial SCM
-   connection to load the Jenkinsfile; the pipeline also uses the same
-   credential for its explicit checkout.
-5. Save the job, select **Build with Parameters**, and enter the branch to
-   build in `GITHUB_BRANCH` (default: `feature/ahmed-student-management`).
-   Review the build log, JUnit test results, and archived JAR from the build
-   page.
+   SCM**, select **Git**, enter this repository's clone URL and the branch to
+   build, select the working GitHub credential, and set **Script Path** to
+   `Jenkinsfile`. The pipeline reuses this SCM configuration for its checkout;
+   it does not need a second credential ID in the Jenkinsfile.
+5. Save the job, select **Build Now**, and review the build log, JUnit test
+   results, and archived JAR from the build page.
 
 If GitHub reports **Invalid username or token**, check that the selected
 credential is the GitHub **Username with password** credential, that the
