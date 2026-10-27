@@ -145,6 +145,41 @@ pipeline {
                 }
             }
         }
+
+        stage('UPDATE KUBECONFIG') {
+            steps {
+                // Verifie que le cluster est actif et joignable (kubeconfig temporaire)
+                withCredentials(awsCreds()) {
+                    sh '''
+                        aws eks wait cluster-active --name $CLUSTER_NAME --region $AWS_REGION
+                        aws eks update-kubeconfig --name $CLUSTER_NAME --region $AWS_REGION --kubeconfig $WORKSPACE/.kube-check
+                        kubectl --kubeconfig $WORKSPACE/.kube-check get nodes
+                        rm -f $WORKSPACE/.kube-check
+                    '''
+                }
+            }
+        }
+
+        stage('DEPLOY TO AWS KUBERNETES') {
+            steps {
+                // withKubeConfig (plugin Kubernetes CLI) charge le kubeconfig du credential 'eks-kubeconfig'
+                // awsCreds() fournit les identifiants utilises par "aws eks get-token" dans ce kubeconfig
+                withCredentials(awsCreds() + [usernamePassword(credentialsId: 'dockerhub-cred',
+                                                                usernameVariable: 'DOCKER_USER',
+                                                                passwordVariable: 'DOCKER_PASS')]) {
+                    withKubeConfig([credentialsId: 'eks-kubeconfig']) {
+                        sh '''
+                            sed "s|IMAGE_PLACEHOLDER|$DOCKER_USER/$IMAGE_NAME:$BUILD_NUMBER|" k8s/app.yaml > k8s/app-rendered.yaml
+                            kubectl apply -f k8s/mysql.yaml
+                            kubectl apply -f k8s/app-rendered.yaml
+                            kubectl rollout status deployment/mysql --timeout=300s
+                            kubectl rollout status deployment/student-management --timeout=300s
+                            kubectl get pods,svc -o wide
+                        '''
+                    }
+                }
+            }
+        }
     }
 
     post {
