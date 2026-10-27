@@ -26,6 +26,10 @@ $secureToken = Read-Host "SonarQube token" -AsSecureString
 $tokenPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureToken)
 try {
     $env:SONAR_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($tokenPointer)
+    $authHeaders = @{ Authorization = "Bearer $env:SONAR_TOKEN" }
+    $auth = Invoke-RestMethod -Uri "http://localhost:9000/api/authentication/validate" -Headers $authHeaders
+    if (-not $auth.valid) { throw "SonarQube rejected the token. Generate a new user token and try again." }
+    Remove-Variable authHeaders, auth
     mvn clean verify sonar:sonar "-Dsonar.host.url=http://localhost:9000"
     if ($LASTEXITCODE -ne 0) { throw "SonarQube analysis failed with exit code $LASTEXITCODE" }
 }
