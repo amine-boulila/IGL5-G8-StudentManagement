@@ -63,5 +63,28 @@ pipeline {
             }
         }
 
+        stage('7 - Build Docker Image') {
+            steps {
+                sh 'docker build -t student-management:${BUILD_NUMBER} .'
+            }
+        }
+
+        stage('8 - Push to Docker Hub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
+                                                  usernameVariable: 'DOCKER_USER',
+                                                  passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        docker tag student-management:${BUILD_NUMBER} $DOCKER_USER/student-management:${BUILD_NUMBER}
+                        docker tag student-management:${BUILD_NUMBER} $DOCKER_USER/student-management:latest
+                        docker push $DOCKER_USER/student-management:${BUILD_NUMBER}
+                        docker push $DOCKER_USER/student-management:latest
+                        docker logout
+                    '''
+                }
+            }
+        }
+
     }
 }
