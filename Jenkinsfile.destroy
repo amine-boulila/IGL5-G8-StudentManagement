@@ -1,0 +1,21 @@
+// Tears down the EKS cluster created by stage 10 of the main Jenkinsfile,
+// so it stops consuming the AWS lab budget.
+// The Terraform state lives in the workspace of the main job.
+pipeline {
+    agent any
+
+    stages {
+        stage('Destroy EKS cluster') {
+            steps {
+                withCredentials([file(credentialsId: 'aws-credentials', variable: 'AWS_SHARED_CREDENTIALS_FILE')]) {
+                    dir('/var/jenkins_home/workspace/student-management/terraform') {
+                        sh '''
+                            terraform init -input=false
+                            terraform destroy -auto-approve -input=false
+                        '''
+                    }
+                }
+            }
+        }
+    }
+}
