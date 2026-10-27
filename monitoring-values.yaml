@@ -1,0 +1,15 @@
+prometheus:
+  prometheusSpec:
+    retention: 3d
+    resources:
+      requests: { cpu: 100m, memory: 400Mi }
+      limits: { memory: 800Mi }
+    serviceMonitorSelectorNilUsesHelmValues: false # scrape ServiceMonitors from any namespace
+grafana:
+  adminPassword: "change-me"
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+alertmanager:
+  alertmanagerSpec:
+    resources:
+      requests: { cpu: 25m, memory: 64Mi }

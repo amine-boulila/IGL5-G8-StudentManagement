@@ -98,6 +98,7 @@ resource "aws_eks_node_group" "this" {
   node_role_arn   = var.node_role_arn
   subnet_ids      = aws_subnet.public[*].id
   instance_types  = var.node_instance_types
+  ami_type = "AL2_x86_64"
 
   launch_template {
     id      = aws_launch_template.nodes.id
