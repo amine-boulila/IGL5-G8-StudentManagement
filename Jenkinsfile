@@ -333,6 +333,50 @@ pipeline {
                 }
             }
         }
+        
+        stage('Monitoring') {
+            steps {
+                withAwsCreds {
+                    withCredentials([
+                        string(
+                            credentialsId: 'smtp-app-password',
+                            variable: 'SMTP_PASS'
+                        )
+                    ]) {
+                        sh '''
+                            set +x
+
+                            echo "Updating kubeconfig for EKS..."
+                            aws eks update-kubeconfig \
+                                --region "$AWS_DEFAULT_REGION" \
+                                --name "$EKS_CLUSTER_NAME"
+
+                            echo "Adding Prometheus Community Helm repository..."
+                            helm repo add prometheus-community \
+                                https://prometheus-community.github.io/helm-charts
+
+                            helm repo update
+
+                            echo "Installing or upgrading Prometheus, Grafana, and Alertmanager..."
+                            helm upgrade --install monitoring \
+                                prometheus-community/kube-prometheus-stack \
+                                -n monitoring \
+                                --create-namespace \
+                                -f monitoring-values.yaml \
+                                --set-string "alertmanager.config.global.smtp_auth_password=$SMTP_PASS" \
+                                --timeout 10m
+
+                            echo "Waiting for monitoring resources..."
+                            kubectl get pods -n monitoring
+                            kubectl get services -n monitoring
+
+                            echo "Monitoring stack deployment completed."
+                        '''
+                    }
+                }
+            }
+        }
+
     }
 
     post {
