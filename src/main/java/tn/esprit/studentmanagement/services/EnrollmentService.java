@@ -2,19 +2,21 @@ package tn.esprit.studentmanagement.services;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.AllArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import tn.esprit.studentmanagement.entities.Enrollment;
 import tn.esprit.studentmanagement.repositories.EnrollmentRepository;
 
 import java.util.List;
 
 @Service
+@AllArgsConstructor
 public class EnrollmentService implements IEnrollment {
     private static final Logger logger = LogManager.getLogger(EnrollmentService.class);
 
-    @Autowired
-    private EnrollmentRepository enrollmentRepository;
+    private final EnrollmentRepository enrollmentRepository;
 
     @Override
     public List<Enrollment> getAllEnrollments() {
@@ -33,7 +35,9 @@ public class EnrollmentService implements IEnrollment {
     public Enrollment getEnrollmentById(Long idEnrollment) {
         logger.info("Fetching enrollment with id {}", idEnrollment);
         try {
-            Enrollment enrollment = enrollmentRepository.findById(idEnrollment).get();
+            Enrollment enrollment = enrollmentRepository.findById(idEnrollment)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Enrollment not found with id " + idEnrollment));
             logger.debug("Found enrollment with id {}", idEnrollment);
             return enrollment;
         } catch (RuntimeException exception) {

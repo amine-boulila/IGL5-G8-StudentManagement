@@ -10,8 +10,9 @@ import tn.esprit.studentmanagement.entities.Status;
 import tn.esprit.studentmanagement.repositories.EnrollmentRepository;
 
 import java.time.LocalDate;
-import java.util.NoSuchElementException;
 import java.util.Optional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -89,7 +90,9 @@ class EnrollmentServiceMockitoTest {
     void getEnrollmentByIdShouldThrowWhenMissing() {
         when(enrollmentRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThrows(NoSuchElementException.class, () -> enrollmentService.getEnrollmentById(99L));
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> enrollmentService.getEnrollmentById(99L));
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
 
         verify(enrollmentRepository).findById(99L);
         verifyNoMoreInteractions(enrollmentRepository);

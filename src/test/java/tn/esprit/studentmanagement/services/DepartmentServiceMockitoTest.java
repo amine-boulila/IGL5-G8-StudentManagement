@@ -8,8 +8,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import tn.esprit.studentmanagement.entities.Department;
 import tn.esprit.studentmanagement.repositories.DepartmentRepository;
 
-import java.util.NoSuchElementException;
 import java.util.Optional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -89,7 +90,9 @@ class DepartmentServiceMockitoTest {
         departmentService.deleteDepartment(departmentId);
 
         assertFalse(departmentRepository.findById(departmentId).isPresent());
-        assertThrows(NoSuchElementException.class, () -> departmentService.getDepartmentById(departmentId));
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> departmentService.getDepartmentById(departmentId));
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
         verify(departmentRepository).deleteById(departmentId);
         verify(departmentRepository, times(2)).findById(departmentId);
         verifyNoMoreInteractions(departmentRepository);
