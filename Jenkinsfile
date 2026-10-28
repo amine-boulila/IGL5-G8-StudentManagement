@@ -42,12 +42,7 @@ pipeline {
                         trap 'rm -f "$settings_file"' EXIT
 
                         xml_escape() {
-                            printf '%s' "$1" | sed \
-                                -e 's/&/\&amp;/g' \
-                                -e 's/</\&lt;/g' \
-                                -e 's/>/\&gt;/g' \
-                                -e 's/"/\&quot;/g' \
-                                -e "s/'/\&apos;/g"
+                            printf '%s' "$1" | sed -e 's/&/\\&amp;/g' -e 's/</\\&lt;/g' -e 's/>/\\&gt;/g' -e 's/"/\\&quot;/g' -e "s/'/\\&apos;/g"
                         }
 
                         nexus_username="$(xml_escape "$NEXUS_USERNAME")"
