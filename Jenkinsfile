@@ -6,6 +6,10 @@ pipeline {
         jdk 'JDK17'
     }
 
+    environment {
+        NOTIFY_EMAIL = 'benjemaayassine00@gmail.com'
+    }
+
     stages {
         stage('1 - Git Checkout') {
             steps {
@@ -139,5 +143,30 @@ pipeline {
             }
         }
 
+    }
+
+    post {
+        success {
+            script {
+                try {
+                    emailext to: "${NOTIFY_EMAIL}",
+                             subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                             body: "The pipeline ${env.JOB_NAME} build #${env.BUILD_NUMBER} succeeded. Details: ${env.BUILD_URL}"
+                } catch (err) {
+                    echo "Email notification failed: ${err.message}"
+                }
+            }
+        }
+        failure {
+            script {
+                try {
+                    emailext to: "${NOTIFY_EMAIL}",
+                             subject: "FAILURE: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                             body: "The pipeline ${env.JOB_NAME} build #${env.BUILD_NUMBER} failed. Console output: ${env.BUILD_URL}console"
+                } catch (err) {
+                    echo "Email notification failed: ${err.message}"
+                }
+            }
+        }
     }
 }
