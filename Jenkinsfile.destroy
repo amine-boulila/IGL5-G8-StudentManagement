@@ -75,13 +75,18 @@ pipeline {
                         sh '''
                             set -eu
                             export AWS_DEFAULT_REGION=us-east-1
+                            state_file="/var/jenkins_home/workspace/student-management-pipeline/terraform/eks-cluster/terraform.tfstate"
+
+                            test -f "$state_file"
 
                             terraform init -input=false
                             terraform validate
                             terraform plan -destroy -input=false \
+                              -state="$state_file" \
                               -var="aws_region=us-east-1" \
                               -var="aws_profile="
                             terraform destroy -auto-approve \
+                              -state="$state_file" \
                               -var="aws_region=us-east-1" \
                               -var="aws_profile="
                         '''
