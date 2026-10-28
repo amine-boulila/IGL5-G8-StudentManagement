@@ -1,9 +1,12 @@
 package tn.esprit.studentmanagement.controllers;
 
 import lombok.AllArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+import tn.esprit.studentmanagement.dto.StudentRequestDTO;
+import tn.esprit.studentmanagement.dto.StudentResponseDTO;
 import tn.esprit.studentmanagement.entities.Student;
+import tn.esprit.studentmanagement.mappers.StudentMapper;
 import tn.esprit.studentmanagement.services.IStudentService;
 
 import java.util.List;
@@ -13,20 +16,31 @@ import java.util.List;
 @CrossOrigin(origins = "http://localhost:4200")
 @AllArgsConstructor
 public class StudentController {
-IStudentService studentService;
+    private final IStudentService studentService;
+    private final StudentMapper studentMapper;
 
     @GetMapping("/getAllStudents")
-    public List<Student> getAllStudents() { return studentService.getAllStudents(); }
+    public List<StudentResponseDTO> getAllStudents() {
+        return studentService.getAllStudents().stream().map(studentMapper::toResponse).toList();
+    }
 
     @GetMapping("/getStudent/{id}")
-    public Student getStudent(@PathVariable Long id) { return studentService.getStudentById(id); }
+    public StudentResponseDTO getStudent(@PathVariable Long id) {
+        return studentMapper.toResponse(studentService.getStudentById(id));
+    }
 
     @PostMapping("/createStudent")
-    public Student createStudent(@RequestBody Student student) { return studentService.saveStudent(student); }
+    public StudentResponseDTO createStudent(@Valid @RequestBody StudentRequestDTO dto) {
+        Student student = new Student();
+        studentMapper.applyToEntity(dto, student);
+        return studentMapper.toResponse(studentService.saveStudent(student));
+    }
 
-    @PutMapping("/updateStudent")
-    public Student updateStudent(@RequestBody Student student) {
-        return studentService.saveStudent(student);
+    @PutMapping("/updateStudent/{id}")
+    public StudentResponseDTO updateStudent(@PathVariable Long id, @Valid @RequestBody StudentRequestDTO dto) {
+        Student student = studentService.getStudentById(id);
+        studentMapper.applyToEntity(dto, student);
+        return studentMapper.toResponse(studentService.saveStudent(student));
     }
 
     @DeleteMapping("/deleteStudent/{id}")
