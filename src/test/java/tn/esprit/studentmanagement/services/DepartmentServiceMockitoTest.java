@@ -20,6 +20,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 
 @ExtendWith(MockitoExtension.class)
 class DepartmentServiceMockitoTest {
@@ -95,6 +96,24 @@ class DepartmentServiceMockitoTest {
         assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
         verify(departmentRepository).deleteById(departmentId);
         verify(departmentRepository, times(2)).findById(departmentId);
+        verifyNoMoreInteractions(departmentRepository);
+    }
+
+    @Test
+    void rethrowsRepositoryFailuresFromListSaveAndDelete() {
+        Department department = createDepartment(null, "CS", "A", "123", "Dr A");
+        RuntimeException failure = new IllegalStateException("database unavailable");
+        when(departmentRepository.findAll()).thenThrow(failure);
+        when(departmentRepository.save(department)).thenThrow(failure);
+        doThrow(failure).when(departmentRepository).deleteById(9L);
+
+        assertEquals(failure, assertThrows(RuntimeException.class, () -> departmentService.getAllDepartments()));
+        assertEquals(failure, assertThrows(RuntimeException.class, () -> departmentService.saveDepartment(department)));
+        assertEquals(failure, assertThrows(RuntimeException.class, () -> departmentService.deleteDepartment(9L)));
+
+        verify(departmentRepository).findAll();
+        verify(departmentRepository).save(department);
+        verify(departmentRepository).deleteById(9L);
         verifyNoMoreInteractions(departmentRepository);
     }
 
