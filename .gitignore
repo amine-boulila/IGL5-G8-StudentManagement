@@ -9,6 +9,7 @@ target/
 *.tfvars
 *.tfvars.json
 *.tfplan
+**/maven-settings.xml
 crash.log
 crash.*.log
 .mvn/wrapper/maven-wrapper.jar

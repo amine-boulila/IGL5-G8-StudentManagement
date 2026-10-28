@@ -1,0 +1,14 @@
+name: student-management-nexus
+
+services:
+  nexus:
+    image: sonatype/nexus3:3.97.3
+    container_name: student-management-nexus
+    ports:
+      - "8081:8081"
+    volumes:
+      - nexus_data:/nexus-data
+    restart: unless-stopped
+
+volumes:
+  nexus_data:

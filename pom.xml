@@ -26,6 +26,18 @@
         <tag/>
         <url/>
     </scm>
+    <distributionManagement>
+        <repository>
+            <id>nexus-releases</id>
+            <name>Nexus Releases</name>
+            <url>http://host.docker.internal:8081/repository/maven-releases/</url>
+        </repository>
+        <snapshotRepository>
+            <id>nexus-snapshots</id>
+            <name>Nexus Snapshots</name>
+            <url>http://host.docker.internal:8081/repository/maven-snapshots/</url>
+        </snapshotRepository>
+    </distributionManagement>
     <properties>
         <java.version>17</java.version>
         <sonar.projectKey>student-management</sonar.projectKey>

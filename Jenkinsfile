@@ -27,6 +27,52 @@ pipeline {
                 }
             }
         }
+
+        stage('Publish to Nexus') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'nexus-maven-deploy',
+                    usernameVariable: 'NEXUS_USERNAME',
+                    passwordVariable: 'NEXUS_PASSWORD'
+                )]) {
+                    sh '''
+                        set +x
+                        umask 077
+                        settings_file="$(mktemp)"
+                        trap 'rm -f "$settings_file"' EXIT
+
+                        xml_escape() {
+                            printf '%s' "$1" | sed \
+                                -e 's/&/\&amp;/g' \
+                                -e 's/</\&lt;/g' \
+                                -e 's/>/\&gt;/g' \
+                                -e 's/"/\&quot;/g' \
+                                -e "s/'/\&apos;/g"
+                        }
+
+                        nexus_username="$(xml_escape "$NEXUS_USERNAME")"
+                        nexus_password="$(xml_escape "$NEXUS_PASSWORD")"
+                        printf '%s\n' \
+                            '<settings>' \
+                            '  <servers>' \
+                            '    <server>' \
+                            '      <id>nexus-releases</id>' \
+                            "      <username>${nexus_username}</username>" \
+                            "      <password>${nexus_password}</password>" \
+                            '    </server>' \
+                            '    <server>' \
+                            '      <id>nexus-snapshots</id>' \
+                            "      <username>${nexus_username}</username>" \
+                            "      <password>${nexus_password}</password>" \
+                            '    </server>' \
+                            '  </servers>' \
+                            '</settings>' > "$settings_file"
+
+                        bash ./mvnw --batch-mode --settings "$settings_file" deploy -DskipTests
+                    '''
+                }
+            }
+        }
     }
 
     post {

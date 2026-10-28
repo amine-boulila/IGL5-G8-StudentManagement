@@ -3,7 +3,8 @@
 The pipeline in [Jenkinsfile](./Jenkinsfile) checks out the private GitHub
 repository using the SCM URL, branch, and credential configured on the Jenkins
 job, runs the Maven wrapper, publishes JUnit test results, uploads the JaCoCo
-report through SonarQube analysis, and archives the packaged JAR.
+report through SonarQube analysis, publishes the Maven artifact to Nexus, and
+archives the packaged JAR.
 The wrapper is invoked as `bash ./mvnw` so it resolves `.mvn/wrapper` from the
 workspace root in Jenkins.
 
@@ -20,9 +21,15 @@ controller for a shared or production Jenkins instance.
    - Kind: **Secret text**
    - Secret: a newly generated SonarQube user token
    - ID: `sonarqube-token`
-2. Revoke and replace any token previously pasted into a file, terminal, or
+2. Add a separate **Username with password** credential for the dedicated
+   Nexus deployment user:
+   - ID: `nexus-maven-deploy`
+   - The account must have permission to publish to the `maven-snapshots`
+     and `maven-releases` repositories. See [NEXUS.md](./NEXUS.md) for Nexus
+     setup and the required Nexus privileges.
+3. Revoke and replace any token previously pasted into a file, terminal, or
    chat. Never put a token in the Jenkinsfile or Git.
-3. If the GitHub repository is private, add a separate repository credential
+4. If the GitHub repository is private, add a separate repository credential
    to the Jenkins global store. You do not need to own the repository, but
    your GitHub account must already have access to it:
    - Create a fine-grained personal access token for the repository owner's
@@ -38,12 +45,12 @@ controller for a shared or production Jenkins instance.
      `github-repo-read`.
    - Do not select the SonarQube `Secret text` credential for Git checkout,
      and never put a token in the repository URL.
-4. Create a **Pipeline** job. Under **Pipeline**, choose **Pipeline script from
+5. Create a **Pipeline** job. Under **Pipeline**, choose **Pipeline script from
    SCM**, select **Git**, enter this repository's clone URL and the branch to
    build, select the working GitHub credential, and set **Script Path** to
    `Jenkinsfile`. The pipeline reuses this SCM configuration for its checkout;
    it does not need a second credential ID in the Jenkinsfile.
-5. Save the job, select **Build Now**, and review the build log, JUnit test
+6. Save the job, select **Build Now**, and review the build log, JUnit test
    results, and archived JAR from the build page.
 
 If GitHub reports **Invalid username or token**, check that the selected
@@ -57,9 +64,11 @@ supplying a token.
 
 The Jenkins container must be able to reach SonarQube at
 `http://host.docker.internal:9000`. This route was verified from the current
-Jenkins container. The pipeline uses a Jenkins secret-text credential and
-passes the token through the `SONAR_TOKEN` environment variable; it does not
-print or store the token in the workspace.
+Jenkins container. It must also be able to reach Nexus at
+`http://host.docker.internal:8081`. The pipeline uses Jenkins credentials for
+SonarQube and Nexus and does not store them in the repository. Maven settings
+for Nexus are created as a temporary, permission-restricted file and removed
+after deployment.
 
 ## Automatic builds from GitHub
 
