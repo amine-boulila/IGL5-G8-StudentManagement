@@ -96,7 +96,7 @@ class EnrollmentServiceMockitoTest {
         verifyNoMoreInteractions(enrollmentRepository);
     }
 
-    // Cas d'erreur bonus : le service utilise Optional.get()
+    // The lookup fails with NoSuchElementException when no enrollment exists.
     @Test
     void getEnrollmentByIdShouldThrowWhenMissing() {
         when(enrollmentRepository.findById(99L)).thenReturn(Optional.empty());
