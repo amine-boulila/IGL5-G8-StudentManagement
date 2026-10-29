@@ -65,6 +65,18 @@ class DepartmentServiceMockitoTest {
     }
 
     @Test
+    void getAllDepartmentsShouldRethrowRepositoryFailure() {
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        when(departmentRepository.findAll()).thenThrow(failure);
+
+        assertEquals(failure, assertThrows(
+                IllegalStateException.class,
+                () -> departmentService.getAllDepartments()));
+        verify(departmentRepository).findAll();
+        verifyNoMoreInteractions(departmentRepository);
+    }
+
+    @Test
     void saveDepartmentShouldUpdateExistingDepartment() {
         Department department = createDepartment(1L, "Applied Physics", "Research Center", "444555666", "Dr Wilson");
         when(departmentRepository.save(department)).thenReturn(department);
