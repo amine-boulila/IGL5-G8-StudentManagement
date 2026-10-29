@@ -18,7 +18,6 @@ alertmanager:
       smtp_smarthost: "smtp.gmail.com:587"
       smtp_from: "vitamine.mtc@gmail.com"
       smtp_auth_username: "vitamine.mtc@gmail.com"
-      smtp_auth_password: "otay ysts pfce pxyv"
       smtp_require_tls: true
     route:
       receiver: "email"

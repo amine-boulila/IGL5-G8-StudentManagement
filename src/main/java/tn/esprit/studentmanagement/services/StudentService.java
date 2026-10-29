@@ -1,9 +1,7 @@
 package tn.esprit.studentmanagement.services;
 
-import lombok.AllArgsConstructor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import tn.esprit.studentmanagement.entities.Student;
 import tn.esprit.studentmanagement.repositories.StudentRepository;
@@ -14,8 +12,11 @@ import java.util.List;
 public class StudentService implements IStudentService {
     private static final Logger logger = LogManager.getLogger(StudentService.class);
 
-    @Autowired
-    private StudentRepository studentRepository;
+    private final StudentRepository studentRepository;
+
+    public StudentService(StudentRepository studentRepository) {
+        this.studentRepository = studentRepository;
+    }
 
     public List<Student> getAllStudents() {
         logger.info("Fetching all students");

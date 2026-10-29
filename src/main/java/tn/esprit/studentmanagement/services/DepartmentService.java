@@ -2,7 +2,6 @@ package tn.esprit.studentmanagement.services;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import tn.esprit.studentmanagement.entities.Department;
 import tn.esprit.studentmanagement.repositories.DepartmentRepository;
@@ -14,8 +13,11 @@ import java.util.List;
 public class DepartmentService implements IDepartmentService {
     private static final Logger logger = LogManager.getLogger(DepartmentService.class);
 
-    @Autowired
-    private DepartmentRepository departmentRepository;
+    private final DepartmentRepository departmentRepository;
+
+    public DepartmentService(DepartmentRepository departmentRepository) {
+        this.departmentRepository = departmentRepository;
+    }
 
     @Override
     public List<Department> getAllDepartments() {
@@ -34,7 +36,7 @@ public class DepartmentService implements IDepartmentService {
     public Department getDepartmentById(Long idDepartment) {
         logger.info("Fetching department with id {}", idDepartment);
         try {
-            Department department = departmentRepository.findById(idDepartment).get();
+            Department department = departmentRepository.findById(idDepartment).orElseThrow();
             logger.debug("Found department with id {}", idDepartment);
             return department;
         } catch (RuntimeException exception) {
