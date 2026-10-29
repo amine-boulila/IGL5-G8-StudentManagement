@@ -195,4 +195,28 @@ pipeline {
             }
         }
     }
+    post {
+        failure {
+            script {
+                withAwsLab {
+                    sh '''
+                        aws eks update-kubeconfig --name devops-eks --region us-east-1 || true
+                        echo "===== PODS (all namespaces) ====="
+                        kubectl get pods -A -o wide || true
+                        echo "===== EVENTS (recent) ====="
+                        kubectl get events -A --sort-by=.lastTimestamp | tail -40 || true
+                        echo "===== APP DESCRIBE ====="
+                        kubectl describe pods -l app=student-management -n default || true
+                        echo "===== APP LOGS ====="
+                        kubectl logs -l app=student-management -n default --all-containers --tail=100 || true
+                        echo "===== MYSQL LOGS ====="
+                        kubectl logs deploy/mysql -n default --tail=100 || true
+                        echo "===== MONITORING PODS ====="
+                        kubectl get pods -n monitoring || true
+                        kubectl describe pods -n monitoring | grep -A8 -i "events:" | tail -60 || true
+                    '''
+                }
+            }
+        }
+    }
 }
