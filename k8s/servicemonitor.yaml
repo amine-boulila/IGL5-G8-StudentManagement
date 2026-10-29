@@ -11,5 +11,5 @@ spec:
       app: student-management
   endpoints:
     - port: http
-      path: /actuator/prometheus
+      path: /student/actuator/prometheus
       interval: 15s
