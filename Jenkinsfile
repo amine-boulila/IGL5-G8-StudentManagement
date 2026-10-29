@@ -51,7 +51,10 @@ pipeline {
 
         stage('Unit Tests') {
             steps {
-                sh 'mvn verify'
+                sh '''
+                    mvn verify
+                    test -s target/site/jacoco/jacoco.xml
+                '''
             }
             post {
                 always {
@@ -74,6 +77,7 @@ pipeline {
                         mvn org.sonarsource.scanner.maven:sonar-maven-plugin:5.2.0.4988:sonar \
                           -Dsonar.host.url="$SONAR_URL" \
                           -Dsonar.projectKey="$SONAR_PROJECT_KEY" \
+                          -Dsonar.coverage.jacoco.xmlReportPaths="target/site/jacoco/jacoco.xml" \
                           -Dsonar.token="$SONAR_TOKEN"
                     '''
                 }
