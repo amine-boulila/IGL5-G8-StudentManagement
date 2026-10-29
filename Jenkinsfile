@@ -7,6 +7,13 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
+    parameters {
+        // Les etapes AWS (Terraform + Kubernetes) ne tournent que si cette case est cochee :
+        // evite de recreer le cluster EKS (et de consommer le budget) a chaque build
+        booleanParam(name: 'DEPLOY_TO_AWS', defaultValue: false,
+                     description: 'Creer/mettre a jour le cluster EKS et deployer l application')
+    }
+
     environment {
         IMAGE_NAME   = 'student-management'
         AWS_REGION   = 'us-east-1'
@@ -57,14 +64,22 @@ pipeline {
         stage('MVN SONARQUBE') {
             steps {
                 // Analyse statique + couverture JaCoCo (target/site/jacoco/jacoco.xml)
-                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                // withSonarQubeEnv : URL + token du serveur "sonarqube" configure dans Jenkins
+                withSonarQubeEnv('sonarqube') {
                     sh '''
                         mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:5.1.0.4751:sonar \
-                          -Dsonar.host.url=http://sonarqube:9000 \
-                          -Dsonar.token=$SONAR_TOKEN \
                           -Dsonar.projectKey=student-management \
                           -Dsonar.projectName=student-management
                     '''
+                }
+            }
+        }
+
+        stage('QUALITY GATE') {
+            steps {
+                // Attend le verdict de SonarQube (via webhook) et stoppe la pipeline si le Quality Gate echoue
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
@@ -120,6 +135,9 @@ pipeline {
         }
 
         stage('TEST AWS CREDENTIALS') {
+            when {
+                expression { return params.DEPLOY_TO_AWS }
+            }
             steps {
                 // Identifiants du Learner Lab (a mettre a jour a chaque session)
                 withCredentials(awsCreds()) {
@@ -129,6 +147,9 @@ pipeline {
         }
 
         stage('SETUP TERRAFORM') {
+            when {
+                expression { return params.DEPLOY_TO_AWS }
+            }
             steps {
                 withCredentials(awsCreds()) {
                     dir('terraform') {
@@ -147,6 +168,9 @@ pipeline {
         }
 
         stage('UPDATE KUBECONFIG') {
+            when {
+                expression { return params.DEPLOY_TO_AWS }
+            }
             steps {
                 // Verifie que le cluster est actif et joignable (kubeconfig temporaire)
                 withCredentials(awsCreds()) {
@@ -161,6 +185,9 @@ pipeline {
         }
 
         stage('DEPLOY TO AWS KUBERNETES') {
+            when {
+                expression { return params.DEPLOY_TO_AWS }
+            }
             steps {
                 // withKubeConfig (plugin Kubernetes CLI) charge le kubeconfig du credential 'eks-kubeconfig'
                 // awsCreds() fournit les identifiants utilises par "aws eks get-token" dans ce kubeconfig
