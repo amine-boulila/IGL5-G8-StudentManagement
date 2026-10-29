@@ -111,6 +111,11 @@ pipeline {
             }
         }
         stage('Docker Build') {
+            when {
+                expression {
+                    params.DOCKERHUB_IMAGE?.trim()
+                }
+            }
             steps {
                 sh '''
                     set -eu

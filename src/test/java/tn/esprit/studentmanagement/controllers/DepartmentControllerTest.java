@@ -1,6 +1,7 @@
 package tn.esprit.studentmanagement.controllers;
 
 import org.junit.jupiter.api.Test;
+import tn.esprit.studentmanagement.controllers.dto.DepartmentRequest;
 import tn.esprit.studentmanagement.entities.Department;
 import tn.esprit.studentmanagement.services.IDepartmentService;
 
@@ -8,6 +9,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -41,23 +43,29 @@ class DepartmentControllerTest {
 
     @Test
     void createDepartmentShouldSaveRequestBody() {
-        Department department = new Department();
-        when(departmentService.saveDepartment(department)).thenReturn(department);
+        DepartmentRequest request = new DepartmentRequest(null, "Computer Science", "Block A", "123", "Dr Smith");
+        when(departmentService.saveDepartment(any(Department.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertEquals(department, controller.createDepartment(department));
+        Department result = controller.createDepartment(request);
 
-        verify(departmentService).saveDepartment(department);
+        assertEquals("Computer Science", result.getName());
+        assertEquals("Block A", result.getLocation());
+        verify(departmentService).saveDepartment(any(Department.class));
         verifyNoMoreInteractions(departmentService);
     }
 
     @Test
     void updateDepartmentShouldSaveRequestBody() {
-        Department department = new Department();
-        when(departmentService.saveDepartment(department)).thenReturn(department);
+        DepartmentRequest request = new DepartmentRequest(7L, "Mathematics", "Block B", "456", "Dr Brown");
+        when(departmentService.saveDepartment(any(Department.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertEquals(department, controller.updateDepartment(department));
+        Department result = controller.updateDepartment(request);
 
-        verify(departmentService).saveDepartment(department);
+        assertEquals(7L, result.getIdDepartment());
+        assertEquals("Mathematics", result.getName());
+        verify(departmentService).saveDepartment(any(Department.class));
         verifyNoMoreInteractions(departmentService);
     }
 

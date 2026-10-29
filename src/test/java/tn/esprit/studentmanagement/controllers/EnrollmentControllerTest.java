@@ -1,13 +1,17 @@
 package tn.esprit.studentmanagement.controllers;
 
 import org.junit.jupiter.api.Test;
+import tn.esprit.studentmanagement.controllers.dto.EnrollmentRequest;
 import tn.esprit.studentmanagement.entities.Enrollment;
+import tn.esprit.studentmanagement.repositories.CourseRepository;
+import tn.esprit.studentmanagement.repositories.StudentRepository;
 import tn.esprit.studentmanagement.services.IEnrollment;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -15,7 +19,10 @@ import static org.mockito.Mockito.when;
 class EnrollmentControllerTest {
 
     private final IEnrollment enrollmentService = mock(IEnrollment.class);
-    private final EnrollmentController controller = new EnrollmentController(enrollmentService);
+    private final StudentRepository studentRepository = mock(StudentRepository.class);
+    private final CourseRepository courseRepository = mock(CourseRepository.class);
+    private final EnrollmentController controller = new EnrollmentController(
+            enrollmentService, studentRepository, courseRepository);
 
     @Test
     void getAllEnrollmentShouldReturnServiceResults() {
@@ -41,24 +48,31 @@ class EnrollmentControllerTest {
 
     @Test
     void createEnrollmentShouldSaveRequestBody() {
-        Enrollment enrollment = new Enrollment();
-        when(enrollmentService.saveEnrollment(enrollment)).thenReturn(enrollment);
+        EnrollmentRequest request = new EnrollmentRequest(null, null, 15.5, null, null, null);
+        when(enrollmentService.saveEnrollment(any(Enrollment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertEquals(enrollment, controller.createEnrollment(enrollment));
+        Enrollment result = controller.createEnrollment(request);
 
-        verify(enrollmentService).saveEnrollment(enrollment);
+        assertEquals(15.5, result.getGrade());
+        verify(enrollmentService).saveEnrollment(any(Enrollment.class));
         verifyNoMoreInteractions(enrollmentService);
+        verifyNoMoreInteractions(studentRepository, courseRepository);
     }
 
     @Test
     void updateEnrollmentShouldSaveRequestBody() {
-        Enrollment enrollment = new Enrollment();
-        when(enrollmentService.saveEnrollment(enrollment)).thenReturn(enrollment);
+        EnrollmentRequest request = new EnrollmentRequest(7L, null, 18.0, null, null, null);
+        when(enrollmentService.saveEnrollment(any(Enrollment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertEquals(enrollment, controller.updateEnrollment(enrollment));
+        Enrollment result = controller.updateEnrollment(request);
 
-        verify(enrollmentService).saveEnrollment(enrollment);
+        assertEquals(7L, result.getIdEnrollment());
+        assertEquals(18.0, result.getGrade());
+        verify(enrollmentService).saveEnrollment(any(Enrollment.class));
         verifyNoMoreInteractions(enrollmentService);
+        verifyNoMoreInteractions(studentRepository, courseRepository);
     }
 
     @Test
