@@ -10,6 +10,7 @@ import tn.esprit.studentmanagement.repositories.DepartmentRepository;
 
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -28,6 +29,17 @@ class DepartmentServiceMockitoTest {
 
     @InjectMocks
     private DepartmentService departmentService;
+
+    @Test
+    void getAllDepartmentsShouldReturnRepositoryResults() {
+        List<Department> departments = List.of(createDepartment(1L, "Computer Science", "Block A", "111222333", "Dr Smith"));
+        when(departmentRepository.findAll()).thenReturn(departments);
+
+        assertEquals(departments, departmentService.getAllDepartments());
+
+        verify(departmentRepository).findAll();
+        verifyNoMoreInteractions(departmentRepository);
+    }
 
     @Test
     void saveDepartmentShouldReturnSavedDepartment() {

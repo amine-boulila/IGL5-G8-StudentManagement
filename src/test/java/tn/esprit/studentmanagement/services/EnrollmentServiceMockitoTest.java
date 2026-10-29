@@ -12,6 +12,7 @@ import tn.esprit.studentmanagement.repositories.EnrollmentRepository;
 import java.time.LocalDate;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -28,6 +29,17 @@ class EnrollmentServiceMockitoTest {
 
     @InjectMocks
     private EnrollmentService enrollmentService;
+
+    @Test
+    void getAllEnrollmentsShouldReturnRepositoryResults() {
+        List<Enrollment> enrollments = List.of(createEnrollment(1L, 15.5, Status.ACTIVE));
+        when(enrollmentRepository.findAll()).thenReturn(enrollments);
+
+        assertEquals(enrollments, enrollmentService.getAllEnrollments());
+
+        verify(enrollmentRepository).findAll();
+        verifyNoMoreInteractions(enrollmentRepository);
+    }
 
     // CREATE
     @Test

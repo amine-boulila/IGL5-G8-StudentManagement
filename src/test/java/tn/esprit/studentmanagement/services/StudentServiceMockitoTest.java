@@ -28,6 +28,16 @@ class StudentServiceMockitoTest {
     private StudentService studentService;
 
     @Test
+    void getAllStudentsShouldReturnEmptyListWhenRepositoryHasNoStudents() {
+        when(studentRepository.findAll()).thenReturn(List.of());
+
+        assertEquals(List.of(), studentService.getAllStudents());
+
+        verify(studentRepository).findAll();
+        verifyNoMoreInteractions(studentRepository);
+    }
+
+    @Test
     void getAllStudentsShouldReturnRepositoryResults() {
         List<Student> students = List.of(createStudent(1L, "Amina", "Ben Ali"));
         when(studentRepository.findAll()).thenReturn(students);
