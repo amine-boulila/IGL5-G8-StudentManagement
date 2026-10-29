@@ -216,6 +216,23 @@ pipeline {
         failure {
             echo 'Pipeline en echec : voir les logs de l etape en rouge'
         }
+        always {
+            // Notification email (plugin Email Extension) : destinataires = "Default Recipients" configures dans Jenkins
+            emailext(
+                to: '$DEFAULT_RECIPIENTS',
+                subject: "[Jenkins] ${env.JOB_NAME} #${env.BUILD_NUMBER} : ${currentBuild.currentResult}",
+                mimeType: 'text/html',
+                body: """
+                    <h2>Build ${env.JOB_NAME} #${env.BUILD_NUMBER}</h2>
+                    <p><b>Resultat :</b> ${currentBuild.currentResult}</p>
+                    <p><b>Branche :</b> feature/bechir-pipeline</p>
+                    <p><b>Duree :</b> ${currentBuild.durationString}</p>
+                    <p><b>Deploiement AWS :</b> ${params.DEPLOY_TO_AWS ? 'oui' : 'non'}</p>
+                    <p><a href="${env.BUILD_URL}">Voir le build dans Jenkins</a></p>
+                """,
+                attachLog: currentBuild.currentResult != 'SUCCESS'
+            )
+        }
     }
 }
 
