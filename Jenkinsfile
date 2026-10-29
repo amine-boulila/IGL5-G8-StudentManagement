@@ -67,7 +67,17 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'nexus-credentials',
                                                   usernameVariable: 'NEXUS_USERNAME',
                                                   passwordVariable: 'NEXUS_PASSWORD')]) {
+                    // Snapshot: version 0.0.1-SNAPSHOT goes to the maven-snapshots repository
                     sh 'mvn deploy -DskipTests -s .mvn/settings.xml'
+                    // Release: the same jar is published as 1.0.<build number> to maven-releases
+                    sh '''
+                        mvn deploy:deploy-file -s .mvn/settings.xml \
+                            -Dfile=target/student-management-0.0.1-SNAPSHOT.jar \
+                            -DgroupId=tn.esprit -DartifactId=student-management \
+                            -Dversion=1.0.${BUILD_NUMBER} -Dpackaging=jar -DgeneratePom=true \
+                            -DrepositoryId=nexus \
+                            -Durl=http://nexus:8081/repository/maven-releases/
+                    '''
                 }
             }
         }
