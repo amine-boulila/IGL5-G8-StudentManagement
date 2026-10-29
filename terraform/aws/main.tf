@@ -58,15 +58,17 @@ module "eks" {
 
   eks_managed_node_groups = {
     student_management = {
-      name            = "${local.name}-workers"
-      use_name_prefix = false
-      subnet_ids      = module.vpc.public_subnets
-      instance_types  = ["t3.medium"]
-      ami_type        = "AL2023_x86_64_STANDARD"
-      min_size        = 1
-      max_size        = 2
-      desired_size    = 1
-      disk_size       = 30
+      name                     = "${local.name}-workers"
+      use_name_prefix          = false
+      iam_role_name            = "${local.name}-workers"
+      iam_role_use_name_prefix = false
+      subnet_ids               = module.vpc.public_subnets
+      instance_types           = ["t3.medium"]
+      ami_type                 = "AL2023_x86_64_STANDARD"
+      min_size                 = 1
+      max_size                 = 2
+      desired_size             = 1
+      disk_size                = 30
     }
   }
 
