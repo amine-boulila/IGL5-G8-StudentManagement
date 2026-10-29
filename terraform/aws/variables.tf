@@ -1,5 +1,5 @@
 variable "aws_region" {
-  description = "AWS region for the EKS cluster and ECR repository."
+  description = "AWS region for the EKS cluster."
   type        = string
   default     = "us-east-1"
 }

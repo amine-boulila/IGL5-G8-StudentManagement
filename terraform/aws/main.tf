@@ -48,13 +48,25 @@ module "eks" {
   authentication_mode = "API"
 
   cluster_addons = {
-    coredns    = { most_recent = true }
-    kube-proxy = { most_recent = true }
-    vpc-cni    = { most_recent = true }
+    coredns            = { most_recent = true }
+    kube-proxy         = { most_recent = true }
+    vpc-cni            = { most_recent = true }
+    aws-ebs-csi-driver = { most_recent = true }
   }
 
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.public_subnets
+
+  node_security_group_additional_rules = {
+    application_node_port = {
+      description = "Allow the application NodePort from the administrator CIDR"
+      protocol    = "tcp"
+      from_port   = 30089
+      to_port     = 30089
+      type        = "ingress"
+      cidr_blocks = [var.cluster_admin_cidr]
+    }
+  }
 
   eks_managed_node_groups = {
     student_management = {
@@ -69,38 +81,11 @@ module "eks" {
       max_size                 = 2
       desired_size             = 1
       disk_size                = 30
+      iam_role_additional_policies = {
+        AmazonEBSCSIDriverPolicy = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+      }
     }
   }
 
   tags = local.tags
-}
-
-resource "aws_ecr_repository" "application" {
-  name                 = "student-management"
-  image_tag_mutability = "MUTABLE"
-
-  image_scanning_configuration {
-    scan_on_push = true
-  }
-
-  tags = local.tags
-}
-
-resource "aws_ecr_lifecycle_policy" "application" {
-  repository = aws_ecr_repository.application.name
-
-  policy = jsonencode({
-    rules = [{
-      rulePriority = 1
-      description  = "Keep the most recent 10 images"
-      selection = {
-        tagStatus   = "any"
-        countType   = "imageCountMoreThan"
-        countNumber = 10
-      }
-      action = {
-        type = "expire"
-      }
-    }]
-  })
 }

@@ -1,15 +1,19 @@
 # Jenkins pipeline setup
 
-The pipeline in [Jenkinsfile](./Jenkinsfile) checks out the private GitHub
-repository using the SCM URL, branch, and credential configured on the Jenkins
-job, runs the Maven wrapper, publishes JUnit test results, uploads the JaCoCo
-report through SonarQube analysis, publishes the Maven artifact to Nexus, and
-archives the packaged JAR.
+The [Jenkinsfile](./Jenkinsfile) stages run in this order: checkout, Maven
+clean, artifact construction, unit tests, SonarQube, Nexus publication, Docker
+image build, Docker Hub push, AWS credential test, optional Terraform
+provisioning, kubeconfig update, and Kubernetes deployment.
 The wrapper is invoked as `bash ./mvnw` so it resolves `.mvn/wrapper` from the
 workspace root in Jenkins.
-When the optional `AWS_CLUSTER_ADMIN_CIDR` parameter is set, the pipeline also
-validates and plans the separate AWS ECR/EKS Terraform configuration; it does
-not apply the plan. See [AWS.md](./AWS.md) for the AWS setup and cost notes.
+By default, the pipeline provisions a separate EKS cluster named
+`student-management` with Terraform and deploys to it. The manually created
+`amazing-hiphop-rainbow` cluster is not changed. Before building, set
+`AWS_CLUSTER_ADMIN_CIDR` to your current public IPv4 CIDR (for example
+`203.0.113.25/32`). Terraform automatically applies its saved plan and creates
+billable resources. Disable `PROVISION_EKS_WITH_TERRAFORM` to deploy to an
+already-existing cluster instead. See [AWS.md](./AWS.md) for setup and cost
+notes.
 
 ## Configure Jenkins
 
@@ -30,9 +34,22 @@ controller for a shared or production Jenkins instance.
    - The account must have permission to publish to the `maven-snapshots`
      and `maven-releases` repositories. See [NEXUS.md](./NEXUS.md) for Nexus
      setup and the required Nexus privileges.
-3. Revoke and replace any token previously pasted into a file, terminal, or
+3. Add a **Username with password** credential for Docker Hub:
+   - ID: `dockerhub-credentials`
+   - Use a Docker Hub access token as the password.
+   - Create a public Docker Hub repository named `student-management`.
+4. Add a **Secret file** credential for AWS:
+   - ID: `awscredentials`
+   - File format: AWS shared credentials INI with a `[default]` profile.
+   - Keep access keys and session tokens private; do not print the file.
+5. Add a **Secret file** credential for the AWS database:
+   - ID: `aws-mysql-env`
+   - The file must contain `MYSQL_DATABASE`, `MYSQL_USER`,
+     `MYSQL_PASSWORD`, and `MYSQL_ROOT_PASSWORD` as `KEY=value` lines.
+   - Use a non-root `MYSQL_USER`; never put the file in Git or pipeline logs.
+6. Revoke and replace any token previously pasted into a file, terminal, or
    chat. Never put a token in the Jenkinsfile or Git.
-4. If the GitHub repository is private, add a separate repository credential
+7. If the GitHub repository is private, add a separate repository credential
    to the Jenkins global store. You do not need to own the repository, but
    your GitHub account must already have access to it:
    - Create a fine-grained personal access token for the repository owner's
@@ -48,12 +65,12 @@ controller for a shared or production Jenkins instance.
      `github-repo-read`.
    - Do not select the SonarQube `Secret text` credential for Git checkout,
      and never put a token in the repository URL.
-5. Create a **Pipeline** job. Under **Pipeline**, choose **Pipeline script from
+8. Create a **Pipeline** job. Under **Pipeline**, choose **Pipeline script from
    SCM**, select **Git**, enter this repository's clone URL and the branch to
    build, select the working GitHub credential, and set **Script Path** to
    `Jenkinsfile`. The pipeline reuses this SCM configuration for its checkout;
    it does not need a second credential ID in the Jenkinsfile.
-6. Save the job, select **Build Now**, and review the build log, JUnit test
+9. Save the job, select **Build Now**, and review the build log, JUnit test
    results, and archived JAR from the build page.
 
 If GitHub reports **Invalid username or token**, check that the selected
@@ -73,11 +90,56 @@ SonarQube and Nexus and does not store them in the repository. Maven settings
 for Nexus are created as a temporary, permission-restricted file and removed
 after deployment.
 
-The optional AWS planning stage uses the Jenkins Secret file credential
-`awscredentials` as the AWS shared credentials file and Terraform from
-`/var/jenkins_home/tools/terraform/1.17.0`. Set the
-`AWS_CLUSTER_ADMIN_CIDR` build parameter to an approved fixed IPv4 CIDR before
-running that stage. An empty value skips AWS planning.
+## Docker-enabled Jenkins controller
+
+The Docker build/push stages require Docker CLI and a Docker socket accessible
+to the Jenkins user. The current controller was started with `docker run` and
+does not have either configured. [Dockerfile.jenkins](./Dockerfile.jenkins)
+adds Docker CLI 27.5.1 and Buildx from the official `docker:27.5.1-cli`
+image, plus AWS CLI. Mounting the Docker socket grants Jenkins control
+equivalent to root on the Docker host. Only do this for a trusted, isolated
+coursework Jenkins controller; do not expose this Jenkins instance or permit
+untrusted jobs/users.
+
+To rebuild the controller while preserving its existing Jenkins home volume,
+run these commands from the repository root in PowerShell. They stop and
+replace the container but do not delete the named volume. Check that the
+volume and socket group ID are non-empty before continuing:
+
+```powershell
+$jenkinsVolume = docker inspect jenkins --format '{{range .Mounts}}{{if eq .Destination "/var/jenkins_home"}}{{.Name}}{{end}}{{end}}'
+$dockerGroupId = docker run --rm -v /var/run/docker.sock:/var/run/docker.sock alpine:3.21 stat -c '%g' /var/run/docker.sock
+if ([string]::IsNullOrWhiteSpace($jenkinsVolume) -or [string]::IsNullOrWhiteSpace($dockerGroupId)) {
+    throw "Could not resolve the Jenkins home volume or Docker socket group."
+}
+docker build -f Dockerfile.jenkins -t student-management-jenkins-docker:lts .
+if ($LASTEXITCODE -ne 0) { throw "Jenkins image build failed." }
+docker stop jenkins
+if ($LASTEXITCODE -ne 0) { throw "Could not stop Jenkins." }
+docker rm jenkins
+if ($LASTEXITCODE -ne 0) { throw "Could not replace the Jenkins container." }
+docker run -d --name jenkins `
+  --group-add $dockerGroupId `
+  -p 8080:8080 -p 50000:50000 `
+  -v "${jenkinsVolume}:/var/jenkins_home" `
+  -v /var/run/docker.sock:/var/run/docker.sock `
+  student-management-jenkins-docker:lts
+```
+
+Do not add `-v` to `docker rm`; that would delete the persistent Jenkins
+volume. After Jenkins starts, verify `docker --version`, `docker info`,
+`aws --version`, and the saved Terraform binary from a Pipeline stage.
+
+The AWS stages use Secret file credential `awscredentials` as the AWS shared
+credentials file and Terraform from
+`/var/jenkins_home/tools/terraform/1.17.0`. By default the pipeline provisions
+the Terraform-defined EKS infrastructure in `us-east-1`, then deploys to
+`EKS_CLUSTER_NAME` (`student-management` by default). Provisioning requires a
+valid `AWS_CLUSTER_ADMIN_CIDR` and automatically applies the saved plan. The
+AWS identity also needs EKS cluster access and Kubernetes permissions for
+deployment. Terraform state is in the Jenkins workspace, which must remain
+persistent and private. Never print credential files, access keys, session
+tokens, database values, or kubeconfig contents.
 
 ## Automatic builds from GitHub
 
