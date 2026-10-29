@@ -10,8 +10,9 @@ import tn.esprit.studentmanagement.entities.Status;
 import tn.esprit.studentmanagement.repositories.EnrollmentRepository;
 
 import java.time.LocalDate;
-import java.util.NoSuchElementException;
 import java.util.Optional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -19,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.doThrow;
 
 @ExtendWith(MockitoExtension.class)
 class EnrollmentServiceMockitoTest {
@@ -89,9 +91,29 @@ class EnrollmentServiceMockitoTest {
     void getEnrollmentByIdShouldThrowWhenMissing() {
         when(enrollmentRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThrows(NoSuchElementException.class, () -> enrollmentService.getEnrollmentById(99L));
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> enrollmentService.getEnrollmentById(99L));
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
 
         verify(enrollmentRepository).findById(99L);
+        verifyNoMoreInteractions(enrollmentRepository);
+    }
+
+    @Test
+    void rethrowsRepositoryFailuresFromListSaveAndDelete() {
+        Enrollment enrollment = createEnrollment(null, 15.0, Status.ACTIVE);
+        RuntimeException failure = new IllegalStateException("database unavailable");
+        when(enrollmentRepository.findAll()).thenThrow(failure);
+        when(enrollmentRepository.save(enrollment)).thenThrow(failure);
+        doThrow(failure).when(enrollmentRepository).deleteById(9L);
+
+        assertEquals(failure, assertThrows(RuntimeException.class, () -> enrollmentService.getAllEnrollments()));
+        assertEquals(failure, assertThrows(RuntimeException.class, () -> enrollmentService.saveEnrollment(enrollment)));
+        assertEquals(failure, assertThrows(RuntimeException.class, () -> enrollmentService.deleteEnrollment(9L)));
+
+        verify(enrollmentRepository).findAll();
+        verify(enrollmentRepository).save(enrollment);
+        verify(enrollmentRepository).deleteById(9L);
         verifyNoMoreInteractions(enrollmentRepository);
     }
 
