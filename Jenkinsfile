@@ -196,7 +196,7 @@ pipeline {
         }
     }
     post {
-        failure {
+        unsuccessful {
             script {
                 withAwsLab {
                     sh '''
