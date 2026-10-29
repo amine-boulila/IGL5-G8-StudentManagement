@@ -1,4 +1,4 @@
-# Outils CI/CD en local : Jenkins, SonarQube, Nexus
+# Outils CI/CD en local : Jenkins, SonarQube, Nexus + monitoring Prometheus / Grafana
 # Lancement : docker compose up -d --build   (depuis le dossier devops)
 services:
   jenkins:
@@ -37,9 +37,36 @@ services:
       - nexus_data:/nexus-data
     restart: unless-stopped
 
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
 volumes:
   jenkins_home:
   sonarqube_data:
   sonarqube_extensions:
   sonarqube_logs:
   nexus_data:
+  prometheus_data:
+  grafana_data:

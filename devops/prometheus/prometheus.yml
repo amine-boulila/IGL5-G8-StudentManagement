@@ -1,0 +1,15 @@
+# Prometheus : collecte les metriques toutes les 15 secondes
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # Metriques de Jenkins (plugin "Prometheus metrics", endpoint /prometheus)
+  - job_name: jenkins
+    metrics_path: /prometheus
+    static_configs:
+      - targets: ['jenkins:8080']
+
+  # Prometheus se surveille lui-meme
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
