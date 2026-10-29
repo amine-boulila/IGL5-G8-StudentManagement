@@ -2,14 +2,18 @@ package tn.esprit.studentmanagement.controllers;
 
 import org.junit.jupiter.api.Test;
 import tn.esprit.studentmanagement.controllers.dto.EnrollmentRequest;
+import tn.esprit.studentmanagement.entities.Course;
 import tn.esprit.studentmanagement.entities.Enrollment;
+import tn.esprit.studentmanagement.entities.Student;
 import tn.esprit.studentmanagement.repositories.CourseRepository;
 import tn.esprit.studentmanagement.repositories.StudentRepository;
 import tn.esprit.studentmanagement.services.IEnrollment;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.verify;
@@ -58,6 +62,27 @@ class EnrollmentControllerTest {
         verify(enrollmentService).saveEnrollment(any(Enrollment.class));
         verifyNoMoreInteractions(enrollmentService);
         verifyNoMoreInteractions(studentRepository, courseRepository);
+    }
+
+    @Test
+    void createEnrollmentShouldResolveRelationshipsAndIgnoreClientId() {
+        Student student = new Student();
+        Course course = new Course();
+        when(studentRepository.findById(3L)).thenReturn(Optional.of(student));
+        when(courseRepository.findById(5L)).thenReturn(Optional.of(course));
+        when(enrollmentService.saveEnrollment(any(Enrollment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        EnrollmentRequest request = new EnrollmentRequest(99L, null, 17.0, null, 3L, 5L);
+
+        Enrollment result = controller.createEnrollment(request);
+
+        assertNull(result.getIdEnrollment());
+        assertEquals(student, result.getStudent());
+        assertEquals(course, result.getCourse());
+        verify(studentRepository).findById(3L);
+        verify(courseRepository).findById(5L);
+        verify(enrollmentService).saveEnrollment(any(Enrollment.class));
+        verifyNoMoreInteractions(studentRepository, courseRepository, enrollmentService);
     }
 
     @Test

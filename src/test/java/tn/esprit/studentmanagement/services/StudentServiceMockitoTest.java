@@ -13,7 +13,9 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -104,6 +106,39 @@ class StudentServiceMockitoTest {
 
         assertEquals(failure, thrown);
         verify(studentRepository).save(student);
+        verifyNoMoreInteractions(studentRepository);
+    }
+
+    @Test
+    void getAllStudentsShouldRethrowRepositoryFailure() {
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        when(studentRepository.findAll()).thenThrow(failure);
+
+        assertSame(failure, assertThrows(IllegalStateException.class, studentService::getAllStudents));
+
+        verify(studentRepository).findAll();
+        verifyNoMoreInteractions(studentRepository);
+    }
+
+    @Test
+    void getStudentByIdShouldRethrowRepositoryFailure() {
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        when(studentRepository.findById(1L)).thenThrow(failure);
+
+        assertSame(failure, assertThrows(IllegalStateException.class, () -> studentService.getStudentById(1L)));
+
+        verify(studentRepository).findById(1L);
+        verifyNoMoreInteractions(studentRepository);
+    }
+
+    @Test
+    void deleteStudentShouldRethrowRepositoryFailure() {
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        doThrow(failure).when(studentRepository).deleteById(1L);
+
+        assertSame(failure, assertThrows(IllegalStateException.class, () -> studentService.deleteStudent(1L)));
+
+        verify(studentRepository).deleteById(1L);
         verifyNoMoreInteractions(studentRepository);
     }
 

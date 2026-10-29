@@ -16,7 +16,9 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
@@ -104,6 +106,42 @@ class EnrollmentServiceMockitoTest {
         assertThrows(NoSuchElementException.class, () -> enrollmentService.getEnrollmentById(99L));
 
         verify(enrollmentRepository).findById(99L);
+        verifyNoMoreInteractions(enrollmentRepository);
+    }
+
+    @Test
+    void getAllEnrollmentsShouldRethrowRepositoryFailure() {
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        when(enrollmentRepository.findAll()).thenThrow(failure);
+
+        assertSame(failure, assertThrows(IllegalStateException.class, enrollmentService::getAllEnrollments));
+
+        verify(enrollmentRepository).findAll();
+        verifyNoMoreInteractions(enrollmentRepository);
+    }
+
+    @Test
+    void saveEnrollmentShouldRethrowRepositoryFailure() {
+        Enrollment enrollment = createEnrollment(null, 15.5, Status.ACTIVE);
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        when(enrollmentRepository.save(enrollment)).thenThrow(failure);
+
+        assertSame(failure, assertThrows(IllegalStateException.class,
+                () -> enrollmentService.saveEnrollment(enrollment)));
+
+        verify(enrollmentRepository).save(enrollment);
+        verifyNoMoreInteractions(enrollmentRepository);
+    }
+
+    @Test
+    void deleteEnrollmentShouldRethrowRepositoryFailure() {
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        doThrow(failure).when(enrollmentRepository).deleteById(1L);
+
+        assertSame(failure, assertThrows(IllegalStateException.class,
+                () -> enrollmentService.deleteEnrollment(1L)));
+
+        verify(enrollmentRepository).deleteById(1L);
         verifyNoMoreInteractions(enrollmentRepository);
     }
 

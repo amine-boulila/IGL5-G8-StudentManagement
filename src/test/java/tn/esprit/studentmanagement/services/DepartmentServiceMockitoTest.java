@@ -15,10 +15,12 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -104,6 +106,42 @@ class DepartmentServiceMockitoTest {
         assertThrows(NoSuchElementException.class, () -> departmentService.getDepartmentById(departmentId));
         verify(departmentRepository).deleteById(departmentId);
         verify(departmentRepository, times(2)).findById(departmentId);
+        verifyNoMoreInteractions(departmentRepository);
+    }
+
+    @Test
+    void getAllDepartmentsShouldRethrowRepositoryFailure() {
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        when(departmentRepository.findAll()).thenThrow(failure);
+
+        assertSame(failure, assertThrows(IllegalStateException.class, departmentService::getAllDepartments));
+
+        verify(departmentRepository).findAll();
+        verifyNoMoreInteractions(departmentRepository);
+    }
+
+    @Test
+    void saveDepartmentShouldRethrowRepositoryFailure() {
+        Department department = createDepartment(null, "Computer Science", "Block A", "111222333", "Dr Smith");
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        when(departmentRepository.save(department)).thenThrow(failure);
+
+        assertSame(failure, assertThrows(IllegalStateException.class,
+                () -> departmentService.saveDepartment(department)));
+
+        verify(departmentRepository).save(department);
+        verifyNoMoreInteractions(departmentRepository);
+    }
+
+    @Test
+    void deleteDepartmentShouldRethrowRepositoryFailure() {
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        doThrow(failure).when(departmentRepository).deleteById(1L);
+
+        assertSame(failure, assertThrows(IllegalStateException.class,
+                () -> departmentService.deleteDepartment(1L)));
+
+        verify(departmentRepository).deleteById(1L);
         verifyNoMoreInteractions(departmentRepository);
     }
 

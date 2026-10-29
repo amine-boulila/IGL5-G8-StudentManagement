@@ -2,13 +2,16 @@ package tn.esprit.studentmanagement.controllers;
 
 import org.junit.jupiter.api.Test;
 import tn.esprit.studentmanagement.controllers.dto.StudentRequest;
+import tn.esprit.studentmanagement.entities.Department;
 import tn.esprit.studentmanagement.entities.Student;
 import tn.esprit.studentmanagement.repositories.DepartmentRepository;
 import tn.esprit.studentmanagement.services.IStudentService;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.verify;
@@ -57,6 +60,24 @@ class StudentControllerTest {
         verify(studentService).saveStudent(any(Student.class));
         verifyNoMoreInteractions(studentService);
         verifyNoMoreInteractions(departmentRepository);
+    }
+
+    @Test
+    void createStudentShouldResolveDepartmentAndIgnoreClientId() {
+        Department department = new Department();
+        when(departmentRepository.findById(4L)).thenReturn(Optional.of(department));
+        when(studentService.saveStudent(any(Student.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        StudentRequest request = new StudentRequest(99L, "Amina", "Ben Ali", "amina@example.test",
+                "123", null, "Tunis", 4L);
+
+        Student result = controller.createStudent(request);
+
+        assertNull(result.getIdStudent());
+        assertEquals(department, result.getDepartment());
+        verify(departmentRepository).findById(4L);
+        verify(studentService).saveStudent(any(Student.class));
+        verifyNoMoreInteractions(departmentRepository, studentService);
     }
 
     @Test
