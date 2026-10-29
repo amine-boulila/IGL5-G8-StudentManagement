@@ -150,6 +150,32 @@ pipeline {
                 }
             }
         }
+        stage('Test AWS Credentials') {
+            when {
+                expression {
+                    params.APPLY_INFRASTRUCTURE || params.DOCKERHUB_IMAGE?.trim()
+                }
+            }
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-credentials',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    ),
+                    string(
+                        credentialsId: 'aws-session-token',
+                        variable: 'AWS_SESSION_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        set -eu
+                        export AWS_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
+                        aws sts get-caller-identity --region "$AWS_DEFAULT_REGION"
+                    '''
+                }
+            }
+        }
         stage('Terraform Apply') {
             when {
                 expression {
@@ -236,6 +262,39 @@ pipeline {
                           --timeout=5m
                         kubectl get service student-management \
                           --namespace student-management
+                    '''
+                }
+            }
+        }
+        stage('Monitoring') {
+            when {
+                expression {
+                    params.DOCKERHUB_IMAGE?.trim()
+                }
+            }
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-credentials',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    ),
+                    string(
+                        credentialsId: 'aws-session-token',
+                        variable: 'AWS_SESSION_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        set -eu
+                        export AWS_DEFAULT_REGION="${AWS_REGION:-us-east-1}"
+
+                        kubectl apply -k k8s/monitoring
+                        kubectl rollout status deployment/prometheus \
+                          --namespace student-management \
+                          --timeout=5m
+                        kubectl rollout status deployment/grafana \
+                          --namespace student-management \
+                          --timeout=5m
                     '''
                 }
             }

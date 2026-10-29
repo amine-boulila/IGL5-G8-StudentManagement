@@ -45,3 +45,34 @@ kubectl get service student-management -n student-management --watch
 ```
 
 Then open the `EXTERNAL-IP` hostname followed by `/student`.
+
+## Prometheus and Grafana
+
+After deploying the application, install the monitoring stack:
+
+```powershell
+kubectl apply -k k8s/monitoring
+kubectl get pods -n student-management
+kubectl port-forward service/grafana 3000:3000 -n student-management
+```
+
+Open <http://localhost:3000> and sign in with `admin` / `admin`. Grafana is
+preconfigured with the Prometheus data source and Student Management dashboard.
+Prometheus scrapes the app's internal management port at
+`/actuator/prometheus`; Kubernetes liveness/readiness checks use
+`/actuator/health`. The management port is separate from the public application
+port and is exposed only through an internal Kubernetes service.
+
+To inspect Prometheus directly, use a second terminal:
+
+```powershell
+kubectl port-forward service/prometheus 9090:9090 -n student-management
+```
+
+Both monitoring services are internal Kubernetes services. Their data uses
+temporary storage in this demo setup, so Prometheus history and Grafana's local
+database are lost when their pods are recreated. Change the sample Grafana
+credentials before exposing the service outside a local demonstration.
+
+The Jenkins deployment stage also applies `k8s/monitoring` and waits for both
+monitoring deployments to become ready.

@@ -19,6 +19,9 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 8089
+              name: http
+            - containerPort: 9091
+              name: management
           env:
             - name: DB_URL
               value: jdbc:mysql://mysql:3306/studentdb?createDatabaseIfNotExist=true
@@ -30,12 +33,16 @@ spec:
                   name: student-management-db
                   key: DB_PASSWORD
           readinessProbe:
-            tcpSocket:
-              port: 8089
+            httpGet:
+              path: /actuator/health/readiness
+              port: management
+              scheme: HTTP
             initialDelaySeconds: 30
             periodSeconds: 10
           livenessProbe:
-            tcpSocket:
-              port: 8089
+            httpGet:
+              path: /actuator/health/liveness
+              port: management
+              scheme: HTTP
             initialDelaySeconds: 60
             periodSeconds: 20
