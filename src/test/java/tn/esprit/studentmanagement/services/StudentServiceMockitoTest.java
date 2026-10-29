@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -94,6 +95,23 @@ class StudentServiceMockitoTest {
 
         assertEquals(failure, thrown);
         verify(studentRepository).save(student);
+        verifyNoMoreInteractions(studentRepository);
+    }
+
+    @Test
+    void rethrowsRepositoryFailuresFromReadsAndDelete() {
+        RuntimeException failure = new IllegalStateException("database unavailable");
+        when(studentRepository.findAll()).thenThrow(failure);
+        when(studentRepository.findById(99L)).thenThrow(failure);
+        doThrow(failure).when(studentRepository).deleteById(99L);
+
+        assertEquals(failure, assertThrows(RuntimeException.class, () -> studentService.getAllStudents()));
+        assertEquals(failure, assertThrows(RuntimeException.class, () -> studentService.getStudentById(99L)));
+        assertEquals(failure, assertThrows(RuntimeException.class, () -> studentService.deleteStudent(99L)));
+
+        verify(studentRepository).findAll();
+        verify(studentRepository).findById(99L);
+        verify(studentRepository).deleteById(99L);
         verifyNoMoreInteractions(studentRepository);
     }
 

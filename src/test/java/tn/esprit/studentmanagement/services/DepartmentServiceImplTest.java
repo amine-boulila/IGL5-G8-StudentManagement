@@ -8,9 +8,10 @@ import tn.esprit.studentmanagement.entities.Department;
 import tn.esprit.studentmanagement.repositories.DepartmentRepository;
 
 import java.util.HashSet;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Set;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -100,7 +101,9 @@ class DepartmentServiceImplTest {
         departmentIdsToCleanUp.remove(departmentId);
 
         assertFalse(departmentRepository.existsById(departmentId));
-        assertThrows(NoSuchElementException.class, () -> departmentService.getDepartmentById(departmentId));
+        ResponseStatusException exception = assertThrows(ResponseStatusException.class,
+                () -> departmentService.getDepartmentById(departmentId));
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
     }
 
     private Department saveDepartmentForTest(String name, String location, String phone, String head) {

@@ -2,20 +2,21 @@ package tn.esprit.studentmanagement.services;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.AllArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 import tn.esprit.studentmanagement.entities.Department;
 import tn.esprit.studentmanagement.repositories.DepartmentRepository;
 
 import java.util.List;
 
 @Service
-
+@AllArgsConstructor
 public class DepartmentService implements IDepartmentService {
     private static final Logger logger = LogManager.getLogger(DepartmentService.class);
 
-    @Autowired
-    private DepartmentRepository departmentRepository;
+    private final DepartmentRepository departmentRepository;
 
     @Override
     public List<Department> getAllDepartments() {
@@ -34,7 +35,9 @@ public class DepartmentService implements IDepartmentService {
     public Department getDepartmentById(Long idDepartment) {
         logger.info("Fetching department with id {}", idDepartment);
         try {
-            Department department = departmentRepository.findById(idDepartment).get();
+            Department department = departmentRepository.findById(idDepartment)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Department not found with id " + idDepartment));
             logger.debug("Found department with id {}", idDepartment);
             return department;
         } catch (RuntimeException exception) {
