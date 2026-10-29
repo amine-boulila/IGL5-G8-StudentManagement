@@ -21,3 +21,18 @@ Prometheus: http://localhost:9090 (Status > Targets, the student-management targ
 Grafana: http://localhost:3000 (admin / admin), the Prometheus data source is already provisioned. Import dashboard 4701 (JVM Micrometer) to see the metrics.
 
 docker compose -p studentmon down
+
+# Automatic build on push (GitHub webhook + ngrok)
+
+The `Jenkinsfile` declares `triggers { githubPush() }`, so Jenkins starts the pipeline when GitHub calls its webhook endpoint.
+Jenkins runs on a local PC, so it is exposed to GitHub with ngrok.
+
+ngrok http 8080
+
+On GitHub (repository Settings > Webhooks > Add webhook):
+
+- Payload URL: `https://<ngrok-domain>/github-webhook/`
+- Content type: `application/json`
+- Event: `Just the push event`
+
+Every push to the branch built by the job now starts a build, which creates an EKS cluster: run the destroy job afterwards to protect the AWS lab budget.

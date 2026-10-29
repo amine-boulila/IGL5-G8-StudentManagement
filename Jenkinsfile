@@ -6,6 +6,11 @@ pipeline {
         jdk 'JDK17'
     }
 
+    // Start the pipeline when GitHub sends a push webhook to Jenkins (/github-webhook/)
+    triggers {
+        githubPush()
+    }
+
     environment {
         NOTIFY_EMAIL = 'benjemaayassine00@gmail.com'
     }
