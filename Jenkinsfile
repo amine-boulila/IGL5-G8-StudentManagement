@@ -25,6 +25,7 @@ pipeline {
         maven 'Maven3'
         jdk 'JDK17'
     }
+    triggers { githubPush() }
     environment {
         DOCKER_REPO = 'louha9999/student-management'
         KUBECONFIG  = '/var/jenkins_home/.kube/config'
