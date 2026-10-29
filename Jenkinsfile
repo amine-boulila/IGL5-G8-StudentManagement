@@ -168,6 +168,31 @@ pipeline {
                 }
             }
         }
+        stage('13 - Deploy Monitoring (Prometheus + Grafana)') {
+            steps {
+                withCredentials([string(credentialsId: 'grafana-admin-password', variable: 'GRAFANA_PASS')]) {
+                    script {
+                        withAwsLab {
+                            sh '''
+                                helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+                                helm repo update
 
+                                helm upgrade --install monitoring prometheus-community/kube-prometheus-stack \
+                                --namespace monitoring --create-namespace \
+                                --set grafana.adminPassword="$GRAFANA_PASS" \
+                                --set grafana.service.type=LoadBalancer \
+                                --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+                                --set prometheus.prometheusSpec.retention=3d \
+                                --wait --timeout 10m
+
+                                kubectl apply -f k8s/servicemonitor.yaml
+                                kubectl get pods -n monitoring
+                                kubectl get svc -n monitoring monitoring-grafana
+                            '''
+                        }
+                    }
+                }
+            }
+        }
     }
 }

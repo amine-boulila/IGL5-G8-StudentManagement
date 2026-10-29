@@ -9,4 +9,5 @@ RUN ARCH=$(dpkg --print-architecture) \
 RUN ARCH=$(dpkg --print-architecture) \
     && curl -fsSL "https://dl.k8s.io/release/$(curl -fsSL https://dl.k8s.io/release/stable.txt)/bin/linux/${ARCH}/kubectl" -o /usr/local/bin/kubectl \
     && chmod +x /usr/local/bin/kubectl
+RUN curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 RUN git config --system --add safe.directory '*'
