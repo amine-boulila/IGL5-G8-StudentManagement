@@ -218,5 +218,10 @@ pipeline {
                 }
             }
         }
+        success {
+            mail to: 'mlouhichi550@gmail.com',
+                subject: "SUCCESS: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
+                body: "The pipeline passed.\n\nBuild: ${env.BUILD_URL}"
+        }
     }
 }
