@@ -7,6 +7,12 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
 
+    triggers {
+        // Poll SCM : Jenkins interroge GitHub toutes les 2 minutes et lance un build s'il y a un nouveau commit
+        // (alternative au webhook : pas besoin que Jenkins soit joignable depuis Internet)
+        pollSCM('H/2 * * * *')
+    }
+
     parameters {
         // Les etapes AWS (Terraform + Kubernetes) ne tournent que si cette case est cochee :
         // evite de recreer le cluster EKS (et de consommer le budget) a chaque build
