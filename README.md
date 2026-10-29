@@ -22,16 +22,16 @@ Grafana: http://localhost:3000 (admin / admin), the Prometheus data source is al
 
 docker compose -p studentmon down
 
-# Automatic build on push (GitHub webhook + ngrok)
+# Automatic build on push (GitHub webhook + Cloudflare quick tunnel)
 
 The `Jenkinsfile` declares `triggers { githubPush() }`, so Jenkins starts the pipeline when GitHub calls its webhook endpoint.
-Jenkins runs on a local PC, so it is exposed to GitHub with ngrok.
+Jenkins runs on a local PC, so it is exposed to GitHub with a Cloudflare quick tunnel (the address changes at every start).
 
-ngrok http 8080
+cloudflared tunnel --url http://localhost:8080
 
 On GitHub (repository Settings > Webhooks > Add webhook):
 
-- Payload URL: `https://<ngrok-domain>/github-webhook/`
+- Payload URL: `https://<tunnel-address>.trycloudflare.com/github-webhook/`
 - Content type: `application/json`
 - Event: `Just the push event`
 
