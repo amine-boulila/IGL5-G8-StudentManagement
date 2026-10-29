@@ -1,6 +1,14 @@
 pipeline {
     agent any
 
+    parameters {
+        string(
+            name: 'AWS_CLUSTER_ADMIN_CIDR',
+            defaultValue: '',
+            description: 'Public IPv4 CIDR allowed to reach the EKS API, for example your fixed public IP with /32. Leave blank to skip the AWS plan.'
+        )
+    }
+
     options {
         disableConcurrentBuilds()
         skipDefaultCheckout(true)
@@ -65,6 +73,37 @@ pipeline {
 
                         bash ./mvnw --batch-mode --settings "$settings_file" deploy -DskipTests
                     '''
+                }
+            }
+        }
+
+        stage('Plan AWS infrastructure (no apply)') {
+            when {
+                expression {
+                    return params.AWS_CLUSTER_ADMIN_CIDR != null &&
+                        !params.AWS_CLUSTER_ADMIN_CIDR.trim().isEmpty()
+                }
+            }
+            steps {
+                withCredentials([file(
+                    credentialsId: 'awscredentials',
+                    variable: 'AWS_SHARED_CREDENTIALS_FILE'
+                )]) {
+                    withEnv([
+                        'PATH+TERRAFORM=/var/jenkins_home/tools/terraform/1.17.0',
+                        'AWS_PROFILE=default',
+                        'AWS_DEFAULT_REGION=us-east-1',
+                        "TF_VAR_cluster_admin_cidr=${params.AWS_CLUSTER_ADMIN_CIDR}"
+                    ]) {
+                        sh '''
+                            set -eu
+                            aws sts get-caller-identity --query Arn --output text >/dev/null
+                            terraform -chdir=terraform/aws init -input=false
+                            terraform -chdir=terraform/aws fmt -check -recursive
+                            terraform -chdir=terraform/aws validate
+                            terraform -chdir=terraform/aws plan -input=false -no-color
+                        '''
+                    }
                 }
             }
         }

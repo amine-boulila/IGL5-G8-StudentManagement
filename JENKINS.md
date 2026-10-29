@@ -7,6 +7,9 @@ report through SonarQube analysis, publishes the Maven artifact to Nexus, and
 archives the packaged JAR.
 The wrapper is invoked as `bash ./mvnw` so it resolves `.mvn/wrapper` from the
 workspace root in Jenkins.
+When the optional `AWS_CLUSTER_ADMIN_CIDR` parameter is set, the pipeline also
+validates and plans the separate AWS ECR/EKS Terraform configuration; it does
+not apply the plan. See [AWS.md](./AWS.md) for the AWS setup and cost notes.
 
 ## Configure Jenkins
 
@@ -69,6 +72,12 @@ Jenkins container. It must also be able to reach Nexus at
 SonarQube and Nexus and does not store them in the repository. Maven settings
 for Nexus are created as a temporary, permission-restricted file and removed
 after deployment.
+
+The optional AWS planning stage uses the Jenkins Secret file credential
+`awscredentials` as the AWS shared credentials file and Terraform from
+`/var/jenkins_home/tools/terraform/1.17.0`. Set the
+`AWS_CLUSTER_ADMIN_CIDR` build parameter to an approved fixed IPv4 CIDR before
+running that stage. An empty value skips AWS planning.
 
 ## Automatic builds from GitHub
 
