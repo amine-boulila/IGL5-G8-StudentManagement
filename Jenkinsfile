@@ -1,331 +1,306 @@
 pipeline {
     agent any
 
-    environment {
-        AWS_CREDENTIALS_ID = 'awscredentials'
-        DOCKERHUB_CREDENTIALS_ID = 'dockerhub-credentials'
-        AWS_MYSQL_ENV_CREDENTIALS_ID = 'aws-mysql-env'
-        AWS_REGION = 'us-east-1'
-        KUBECTL_VERSION = 'v1.35.0'
-    }
-
     parameters {
-        booleanParam(
-            name: 'DEPLOY_TO_EKS',
-            defaultValue: true,
-            description: 'Deploy the built image and MySQL workload to the configured EKS cluster.'
-        )
         string(
-            name: 'EKS_CLUSTER_NAME',
-            defaultValue: 'student-management',
-            description: 'Name of the EKS cluster to deploy to.'
-        )
-        booleanParam(
-            name: 'PROVISION_EKS_WITH_TERRAFORM',
-            defaultValue: true,
-            description: 'Create or update the separate student-management EKS infrastructure with Terraform. This can incur AWS charges.'
-        )
-        string(
-            name: 'AWS_CLUSTER_ADMIN_CIDR',
+            name: 'DOCKERHUB_IMAGE',
             defaultValue: '',
-            description: 'Public IPv4 CIDR allowed to reach the EKS API, for example your fixed public IP with /32. Leave blank to skip AWS provisioning.'
+            description: 'Docker Hub image, for example yourusername/student-management'
+        )
+        booleanParam(
+            name: 'APPLY_INFRASTRUCTURE',
+            defaultValue: false,
+            description: 'Run Terraform apply for the EKS infrastructure'
         )
     }
 
-    options {
-        disableConcurrentBuilds()
-        skipDefaultCheckout(true)
-        timestamps()
+    tools {
+        maven 'Maven3'
+        jdk 'JDK17'
     }
 
     stages {
-        stage('CHECKOUT GIT') {
+        stage('1 - Git Checkout') {
             steps {
-                checkout scm
+                git(
+                    branch: 'feature/jenkins-pipeline',
+                    credentialsId: 'github-repo-read',
+                    url: 'https://github.com/amine-boulila/IGL5-G8-StudentManagement.git'
+                )
             }
         }
 
-        stage('MVN CLEAN') {
+        stage('2 - Maven Clean') {
             steps {
-                sh 'bash ./mvnw --batch-mode clean'
+                sh 'chmod +x mvnw'
+                sh './mvnw clean'
             }
         }
 
-        stage('ARTIFACT CONSTRUCTION') {
+        stage('3 - Build Artifact') {
             steps {
-                sh 'bash ./mvnw --batch-mode package -DskipTests'
+                sh './mvnw package -DskipTests'
+            }
+            post {
+                success {
+                    archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+                }
             }
         }
 
-        stage('UNIT TESTS') {
+        stage('4 - Unit Tests') {
             steps {
-                sh 'bash ./mvnw --batch-mode verify'
+                sh './mvnw test jacoco:report'
             }
             post {
                 always {
-                    junit testResults: 'target/surefire-reports/*.xml', allowEmptyResults: true
+                    junit 'target/surefire-reports/*.xml'
                 }
             }
         }
-
-        stage('MVN SONARQUBE') {
+        stage('5 - SonarQube Analysis') {
             steps {
                 withCredentials([string(credentialsId: 'sonarqube-token', variable: 'SONAR_TOKEN')]) {
-                    sh 'bash ./mvnw --batch-mode sonar:sonar -Dsonar.host.url=http://host.docker.internal:9000'
-                }
-            }
-        }
-
-        stage('PUBLISH TO NEXUS') {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: 'nexus-maven-deploy',
-                    usernameVariable: 'NEXUS_USERNAME',
-                    passwordVariable: 'NEXUS_PASSWORD'
-                )]) {
                     sh '''
-                        set +x
-                        umask 077
-                        settings_file="$(mktemp)"
-                        trap 'rm -f "$settings_file"' EXIT
-
-                        xml_escape() {
-                            printf '%s' "$1" | sed -e 's/&/\\&amp;/g' -e 's/</\\&lt;/g' -e 's/>/\\&gt;/g' -e 's/"/\\&quot;/g' -e "s/'/\\&apos;/g"
-                        }
-
-                        nexus_username="$(xml_escape "$NEXUS_USERNAME")"
-                        nexus_password="$(xml_escape "$NEXUS_PASSWORD")"
-                        printf '%s\n' \
-                            '<settings>' \
-                            '  <servers>' \
-                            '    <server>' \
-                            '      <id>nexus-releases</id>' \
-                            "      <username>${nexus_username}</username>" \
-                            "      <password>${nexus_password}</password>" \
-                            '    </server>' \
-                            '    <server>' \
-                            '      <id>nexus-snapshots</id>' \
-                            "      <username>${nexus_username}</username>" \
-                            "      <password>${nexus_password}</password>" \
-                            '    </server>' \
-                            '  </servers>' \
-                            '</settings>' > "$settings_file"
-
-                        bash ./mvnw --batch-mode --settings "$settings_file" deploy -DskipTests
+                        ./mvnw org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+                        -Dsonar.token=$SONAR_TOKEN \
+                        -Dsonar.host.url=http://host.docker.internal:9000 \
+                        -Dsonar.projectKey=student-management
                     '''
                 }
             }
         }
+        stage('Nexus Publish') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'nexus-maven-deploy',
+                        usernameVariable: 'NEXUS_USERNAME',
+                        passwordVariable: 'NEXUS_PASSWORD'
+                    )
+                ]) {
+                    sh '''
+                        set -eu
+                        umask 077
+                        settings_file="$PWD/.nexus-settings.xml"
+                        trap 'rm -f "$settings_file"' EXIT
 
-        stage('BUILDING OUR IMAGE') {
+                        printf '%s\n' \
+                          '<settings>' \
+                          '  <servers>' \
+                          '    <server>' \
+                          '      <id>nexus</id>' \
+                          "      <username>${NEXUS_USERNAME}</username>" \
+                          "      <password>${NEXUS_PASSWORD}</password>" \
+                          '    </server>' \
+                          '  </servers>' \
+                          '</settings>' > "$settings_file"
+
+                        ./mvnw -s "$settings_file" deploy:deploy-file \
+                          -Dfile=target/student-management-0.0.1-SNAPSHOT.jar \
+                          -DpomFile=pom.xml \
+                          -DrepositoryId=nexus \
+                          -Durl=http://host.docker.internal:8081/repository/maven-snapshots/ \
+                          -DgroupId=tn.esprit \
+                          -DartifactId=student-management \
+                          -Dversion=0.0.1-SNAPSHOT \
+                          -Dpackaging=jar \
+                          -DgeneratePom=false
+                    '''
+                }
+            }
+        }
+        stage('Docker Build') {
+            when {
+                expression {
+                    params.DOCKERHUB_IMAGE?.trim()
+                }
+            }
             steps {
                 sh '''
                     set -eu
-                    if ! command -v docker >/dev/null 2>&1; then
-                        echo "Docker CLI is missing from this Jenkins agent."
-                        exit 1
-                    fi
-                    if ! docker info >/dev/null 2>&1; then
-                        echo "Jenkins cannot reach a Docker daemon. Configure the approved Docker socket or builder."
-                        exit 1
-                    fi
-                    docker build --pull --tag "student-management:${BUILD_NUMBER}" .
+                    docker build \
+                      --tag student-management:${BUILD_NUMBER} \
+                      .
                 '''
             }
         }
-
-        stage('DEPLOY OUR IMAGE') {
-            steps {
-                withCredentials([usernamePassword(
-                    credentialsId: env.DOCKERHUB_CREDENTIALS_ID,
-                    usernameVariable: 'DOCKERHUB_USERNAME',
-                    passwordVariable: 'DOCKERHUB_PASSWORD'
-                )]) {
-                    sh '''
-                        set +x
-                        set -eu
-                        case "$DOCKERHUB_USERNAME" in
-                            ""|*[!A-Za-z0-9._-]*)
-                                echo "Docker Hub username contains unsupported characters."
-                                exit 1
-                                ;;
-                        esac
-
-                        export DOCKER_CONFIG="$(mktemp -d)"
-                        trap 'docker logout >/dev/null 2>&1 || true; rm -rf "$DOCKER_CONFIG"' EXIT
-                        printf '%s' "$DOCKERHUB_PASSWORD" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
-                        docker tag "student-management:${BUILD_NUMBER}" "$DOCKERHUB_USERNAME/student-management:${BUILD_NUMBER}"
-                        docker push "$DOCKERHUB_USERNAME/student-management:${BUILD_NUMBER}"
-                    '''
+        stage('Docker Hub Publish') {
+            when {
+                expression {
+                    params.DOCKERHUB_IMAGE?.trim()
                 }
             }
-        }
-
-        stage('Test AWS Credentials') {
-            when {
-                expression { params.DEPLOY_TO_EKS || params.PROVISION_EKS_WITH_TERRAFORM }
-            }
             steps {
-                withCredentials([file(
-                    credentialsId: env.AWS_CREDENTIALS_ID,
-                    variable: 'AWS_SHARED_CREDENTIALS_FILE'
-                )]) {
-                    withEnv([
-                        'AWS_PROFILE=default',
-                        "AWS_DEFAULT_REGION=${env.AWS_REGION}",
-                        "EKS_CLUSTER_NAME=${params.EKS_CLUSTER_NAME}",
-                        "DEPLOY_TO_EKS=${params.DEPLOY_TO_EKS}",
-                        "PROVISION_EKS_WITH_TERRAFORM=${params.PROVISION_EKS_WITH_TERRAFORM}"
-                    ]) {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DOCKERHUB_USERNAME',
+                        passwordVariable: 'DOCKERHUB_TOKEN'
+                    )
+                ]) {
+                    retry(3) {
                         sh '''
                             set -eu
-                            aws sts get-caller-identity --query Arn --output text >/dev/null
-                            if [ "$PROVISION_EKS_WITH_TERRAFORM" != "true" ] && [ "$DEPLOY_TO_EKS" = "true" ]; then
-                                cluster_status="$(aws eks describe-cluster --name "$EKS_CLUSTER_NAME" --query 'cluster.status' --output text)"
-                                if [ "$cluster_status" != "ACTIVE" ]; then
-                                    echo "The configured EKS cluster is not ACTIVE."
-                                    exit 1
-                                fi
-                            fi
-                            echo "AWS credentials verified."
+                            image="${DOCKERHUB_IMAGE}:${BUILD_NUMBER}"
+                            latest_image="${DOCKERHUB_IMAGE}:latest"
+                            printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+                            trap 'docker logout >/dev/null 2>&1 || true' EXIT
+                            docker tag "student-management:${BUILD_NUMBER}" "$image"
+                            docker tag "student-management:${BUILD_NUMBER}" "$latest_image"
+                            docker push "$image"
+                            docker push "$latest_image"
                         '''
                     }
                 }
             }
         }
-
-        stage('SETUP TERRAFORM') {
+        stage('Test AWS Credentials') {
             when {
-                expression { params.PROVISION_EKS_WITH_TERRAFORM }
+                expression {
+                    params.APPLY_INFRASTRUCTURE || params.DOCKERHUB_IMAGE?.trim()
+                }
             }
             steps {
-                withCredentials([file(
-                    credentialsId: env.AWS_CREDENTIALS_ID,
-                    variable: 'AWS_SHARED_CREDENTIALS_FILE'
-                )]) {
-                    withEnv([
-                        'PATH+TERRAFORM=/var/jenkins_home/tools/terraform/1.17.0',
-                        'AWS_PROFILE=default',
-                        "AWS_DEFAULT_REGION=${env.AWS_REGION}",
-                        "TF_VAR_cluster_admin_cidr=${params.AWS_CLUSTER_ADMIN_CIDR}"
-                    ]) {
-                        dir('terraform/aws') {
+                withCredentials([
+                    file(
+                        credentialsId: 'awscredentials',
+                        variable: 'AWS_SHARED_CREDENTIALS_FILE'
+                    )
+                ]) {
+                    withEnv(['AWS_PROFILE=default', 'AWS_DEFAULT_REGION=us-east-1']) {
+                        sh '''
+                            set -eu
+                            aws sts get-caller-identity --region "$AWS_DEFAULT_REGION"
+                        '''
+                    }
+                }
+            }
+        }
+        stage('Terraform Apply') {
+            when {
+                expression {
+                    params.APPLY_INFRASTRUCTURE
+                }
+            }
+            steps {
+                withCredentials([
+                    file(
+                        credentialsId: 'awscredentials',
+                        variable: 'AWS_SHARED_CREDENTIALS_FILE'
+                    )
+                ]) {
+                    withEnv(['AWS_PROFILE=default', 'AWS_DEFAULT_REGION=us-east-1']) {
+                        dir('terraform/eks-cluster') {
                             sh '''
                                 set -eu
-                                if [ -z "$TF_VAR_cluster_admin_cidr" ]; then
-                                    echo "Set AWS_CLUSTER_ADMIN_CIDR before enabling Terraform provisioning."
-                                    exit 1
-                                fi
-                                aws sts get-caller-identity --query Arn --output text >/dev/null
                                 terraform init -input=false
-                                terraform fmt -check -recursive
                                 terraform validate
-                                rm -f student-management.tfplan
-                                trap 'rm -f student-management.tfplan' EXIT
-                                terraform plan -input=false -no-color -out=student-management.tfplan
-                                terraform apply -input=false -auto-approve student-management.tfplan
+                                terraform plan -input=false \
+                                  -var="aws_region=us-east-1" \
+                                  -var="aws_profile=" \
+                                  -var="enable_ebs_csi=false"
+                                terraform apply -auto-approve \
+                                  -var="aws_region=us-east-1" \
+                                  -var="aws_profile=" \
+                                  -var="enable_ebs_csi=false"
                             '''
                         }
                     }
                 }
             }
         }
-
-        stage('UPDATE KUBECONFIG') {
+        stage('Deploy to Kubernetes') {
             when {
-                expression { params.DEPLOY_TO_EKS }
-            }
-            steps {
-                withCredentials([file(
-                    credentialsId: env.AWS_CREDENTIALS_ID,
-                    variable: 'AWS_SHARED_CREDENTIALS_FILE'
-                )]) {
-                    withEnv([
-                        'AWS_PROFILE=default',
-                        "AWS_DEFAULT_REGION=${env.AWS_REGION}",
-                        "EKS_CLUSTER_NAME=${params.EKS_CLUSTER_NAME}"
-                    ]) {
-                        sh '''
-                            set -eu
-                            tools_dir="$WORKSPACE/.tools/bin"
-                            mkdir -p "$tools_dir" "$WORKSPACE/.kube"
-                            kubectl="$tools_dir/kubectl"
-                            kubectl_url="https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
-                            curl --fail --silent --show-error --location "$kubectl_url" -o "$kubectl"
-                            curl --fail --silent --show-error --location "${kubectl_url}.sha256" -o "${kubectl}.sha256"
-                            printf '%s  %s\\n' "$(cat "${kubectl}.sha256")" "$kubectl" | sha256sum --check --status
-                            chmod 0755 "$kubectl"
-                            rm -f "${kubectl}.sha256"
-
-                            export KUBECONFIG="$WORKSPACE/.kube/config"
-                            aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_DEFAULT_REGION" --kubeconfig "$KUBECONFIG" >/dev/null
-                            "$kubectl" wait --for=condition=Ready nodes --all --timeout=10m
-                        '''
-                    }
+                expression {
+                    params.DOCKERHUB_IMAGE?.trim()
                 }
-            }
-        }
-
-        stage('DEPLOY TO AWS KUBERNETES') {
-            when {
-                expression { params.DEPLOY_TO_EKS }
             }
             steps {
                 withCredentials([
-                    file(credentialsId: env.AWS_CREDENTIALS_ID, variable: 'AWS_SHARED_CREDENTIALS_FILE'),
-                    file(credentialsId: env.AWS_MYSQL_ENV_CREDENTIALS_ID, variable: 'MYSQL_ENV_FILE'),
-                    usernamePassword(
-                        credentialsId: env.DOCKERHUB_CREDENTIALS_ID,
-                        usernameVariable: 'DOCKERHUB_USERNAME',
-                        passwordVariable: 'DOCKERHUB_PASSWORD'
+                    file(
+                        credentialsId: 'awscredentials',
+                        variable: 'AWS_SHARED_CREDENTIALS_FILE'
+                    ),
+                    file(
+                        credentialsId: 'aws-mysql-env',
+                        variable: 'MYSQL_ENV_FILE'
                     )
                 ]) {
-                    withEnv([
-                        "PATH+KUBECTL=${env.WORKSPACE}/.tools/bin",
-                        'AWS_PROFILE=default',
-                        "AWS_DEFAULT_REGION=${env.AWS_REGION}"
-                    ]) {
+                    withEnv(['AWS_PROFILE=default', 'AWS_DEFAULT_REGION=us-east-1']) {
                         sh '''
-                            set +x
-                            set -eu
-                            export KUBECONFIG="$WORKSPACE/.kube/config"
+                        set +x
+                        set -eu
+                        umask 077
 
-                            for key in MYSQL_DATABASE MYSQL_USER MYSQL_PASSWORD MYSQL_ROOT_PASSWORD; do
-                                if ! grep -q "^${key}=" "$MYSQL_ENV_FILE"; then
-                                    echo "The AWS MySQL environment credential is missing a required key."
-                                    exit 1
-                                fi
-                            done
+                        aws eks update-kubeconfig \
+                            --region "$AWS_DEFAULT_REGION" \
+                            --name student-management-eks
 
-                            case "$DOCKERHUB_USERNAME" in
-                                ""|*[!A-Za-z0-9._-]*)
-                                    echo "Docker Hub username contains unsupported characters."
-                                    exit 1
-                                    ;;
-                            esac
+                        mysql_password="$(awk -F= '$1 == "MYSQL_PASSWORD" { sub(/^[^=]*=/, ""); sub(/\r$/, ""); print; found=1 } END { if (!found) exit 1 }' "$MYSQL_ENV_FILE")"
+                        if [ -z "$mysql_password" ]; then
+                            echo "MYSQL_PASSWORD is missing from the aws-mysql-env credential."
+                            exit 1
+                        fi
+                        secret_env="$(mktemp)"
+                        trap 'rm -f "$secret_env"' EXIT
+                        printf 'DB_PASSWORD=%s\\n' "$mysql_password" > "$secret_env"
 
-                            kubectl create namespace student-management --dry-run=client -o yaml | kubectl apply -f -
-                            kubectl create secret generic mysql-credentials \
-                                --namespace student-management \
-                                --from-env-file="$MYSQL_ENV_FILE" \
-                                --dry-run=client -o yaml | kubectl apply -f -
-                            kubectl apply -f k8s/aws/mysql.yaml
-                            kubectl rollout status statefulset/mysql --namespace student-management --timeout=10m
+                        kubectl apply -f k8s/namespace.yaml
+                        kubectl create secret generic student-management-db \
+                            --namespace student-management \
+                            --from-env-file="$secret_env" \
+                            --dry-run=client -o yaml | kubectl apply -f -
 
-                            image="$DOCKERHUB_USERNAME/student-management:${BUILD_NUMBER}"
-                            sed "s|__IMAGE__|${image}|g" k8s/aws/app.yaml | kubectl apply -f -
-                            kubectl rollout status deployment/student-management --namespace student-management --timeout=10m
-                            kubectl get service student-management --namespace student-management
+                        kubectl apply -f k8s/mysql-deployment-ephemeral.yaml
+                        kubectl apply -f k8s/mysql-service.yaml
+                        kubectl apply -f k8s/app-deployment.yaml
+                        kubectl apply -f k8s/app-service.yaml
+
+                        kubectl set image deployment/student-management \
+                            student-management="${DOCKERHUB_IMAGE}:${BUILD_NUMBER}" \
+                            --namespace student-management
+                        kubectl rollout status deployment/mysql \
+                            --namespace student-management \
+                            --timeout=5m
+                        kubectl rollout status deployment/student-management \
+                            --namespace student-management \
+                            --timeout=5m
+                        kubectl get service student-management \
+                            --namespace student-management
                         '''
                     }
                 }
             }
         }
-    }
+        stage('Monitoring') {
+            when {
+                expression {
+                    params.DOCKERHUB_IMAGE?.trim()
+                }
+            }
+            steps {
+                withCredentials([
+                    file(
+                        credentialsId: 'awscredentials',
+                        variable: 'AWS_SHARED_CREDENTIALS_FILE'
+                    )
+                ]) {
+                    withEnv(['AWS_PROFILE=default', 'AWS_DEFAULT_REGION=us-east-1']) {
+                        sh '''
+                        set -eu
 
-    post {
-        success {
-            archiveArtifacts artifacts: 'target/student-management-*.jar,target/site/jacoco/**', fingerprint: true
+                        kubectl apply -k k8s/monitoring
+                        kubectl rollout status deployment/prometheus \
+                          --namespace student-management \
+                          --timeout=5m
+                        kubectl rollout status deployment/grafana \
+                          --namespace student-management \
+                          --timeout=5m
+                        '''
+                    }
+                }
+            }
         }
     }
 }
