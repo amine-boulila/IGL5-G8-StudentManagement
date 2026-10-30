@@ -13,8 +13,9 @@ The Terraform configuration creates a VPC, EKS control plane, and one
 control-plane and worker IAM roles instead of creating roles. Worker nodes
 run in public subnets to avoid NAT Gateway charges; no SSH access is
 configured. The EKS API and application NodePort are restricted to
-`AWS_CLUSTER_ADMIN_CIDR`. The EBS CSI add-on is disabled. EKS control-plane
-and EC2 resources incur AWS charges.
+`AWS_CLUSTER_ADMIN_CIDR`; the Grafana service uses NodePort `30090` and is
+restricted to that same CIDR. The EBS CSI add-on is disabled. EKS
+control-plane and EC2 resources incur AWS charges.
 
 The standard EKS module was replaced with AWS provider resources because that
 module queries the caller's IAM session role with `iam:GetRole`, which AWS
@@ -46,9 +47,10 @@ IPv4 CIDR (typically `address/32`) in `AWS_CLUSTER_ADMIN_CIDR`.
   the cluster, obtain an EKS token, and deploy Kubernetes resources. For
   provisioning, the Academy role also needs permission to create the VPC,
   subnets, routes, security-group rule, EKS cluster, managed node group,
-  add-ons, access entry, and access-policy association, and `iam:PassRole`
-  for the two pre-existing Academy EKS roles. An Academy explicit deny can
-  still prevent one or more of these operations.
+  add-ons, access entry, and access-policy association, plus `iam:PassRole`
+  for the two pre-existing Academy EKS roles. This configuration does not
+  create IAM roles or EBS resources. An Academy explicit deny can still
+  prevent one or more of these operations.
 - The configured control-plane role must trust `eks.amazonaws.com` and have
   the EKS cluster service policy. The worker role must trust `ec2.amazonaws.com`
   and have `AmazonEKSWorkerNodePolicy`,
@@ -57,6 +59,9 @@ IPv4 CIDR (typically `address/32`) in `AWS_CLUSTER_ADMIN_CIDR`.
   `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, and
   `MYSQL_ROOT_PASSWORD` as dotenv-style `KEY=value` lines. Use a non-root
   `MYSQL_USER`; never put this file in Git or pipeline logs.
+- Jenkins has a **Secret text** credential with ID
+  `grafana-admin-password`; use a strong unique password and do not put it in
+  Git.
 - Do not use AWS root credentials.
 - Ensure the EKS API endpoint access policy admits Jenkins. If using a
   restricted public endpoint, allow Jenkins' stable egress address.
@@ -67,14 +72,14 @@ Run the Jenkins pipeline with `AWS_CLUSTER_ADMIN_CIDR` set to the current
 approved public IPv4 CIDR. The defaults create `student-management` and deploy
 to it. The ordered stages check out code, clean/build/test, analyze with
 SonarQube, publish to Nexus, build and push the Docker Hub image, verify AWS
-credentials, provision EKS using Terraform, update kubeconfig, then deploy
-MySQL and the application. AWS shared credentials are supplied through
-`AWS_SHARED_CREDENTIALS_FILE`; credential contents are not printed or copied
-into environment variables.
+credentials, provision EKS using Terraform, update kubeconfig, deploy MySQL
+and the application, then deploy Prometheus and Grafana. AWS shared
+credentials are supplied through `AWS_SHARED_CREDENTIALS_FILE`; credential
+contents are not printed or copied into environment variables.
 
-The AWS identity must be authorized to create VPC, IAM, EKS, and EBS CSI
-resources, and to access the resulting EKS cluster for Kubernetes deployment.
-Do not broaden the Kubernetes API allowlist to `0.0.0.0/0`.
+The AWS identity must be authorized to create VPC and EKS resources and pass
+the existing IAM roles, then access the resulting EKS cluster for Kubernetes
+deployment. Do not broaden the Kubernetes API allowlist to `0.0.0.0/0`.
 
 Terraform state and the `.terraform` working directory are local to the
 Jenkins workspace; restrict workspace access, retain the workspace between
@@ -85,10 +90,18 @@ can leave AWS resources unmanaged.
 
 The deployment uses a single MySQL Deployment with ephemeral `emptyDir`
 storage and one Spring Boot replica. **MySQL data is lost if its pod is
-recreated or the node is replaced.** The app is exposed as NodePort `30089`;
-ensure the node security group allows this port from the intended client addresses.
-Use `kubectl get nodes -o wide` to find a worker's public address; the app is
-available at `http://<node-public-ip>:30089/student/swagger-ui/index.html`.
+recreated or the node is replaced.** Prometheus scrapes Spring Boot Actuator
+metrics over an internal ClusterIP service; Prometheus itself is not exposed
+outside the cluster. Grafana is exposed at
+`http://<node-public-ip>:30090` with login `admin` and the Jenkins-stored
+`grafana-admin-password`. Access is restricted by the node security group to
+`AWS_CLUSTER_ADMIN_CIDR`. Prometheus metrics use ephemeral storage with a
+seven-day retention period.
+
+The application is exposed as NodePort `30089`. Use
+`http://<node-public-ip>:30089/student/swagger-ui/index.html` for the
+application UI.
+Use `kubectl get nodes -o wide` to find a worker's public address.
 
 The Terraform EKS configuration creates a separate `student-management`
 cluster. It does not import, adopt, or modify the manually created

@@ -395,7 +395,50 @@ pipeline {
                             kubectl get service student-management --namespace student-management
 
 
+                        '''
+                    }
+                }
+            }
+        }
 
+        stage('DEPLOY PROMETHEUS AND GRAFANA') {
+            when {
+                expression { params.DEPLOY_TO_EKS }
+            }
+            steps {
+                withCredentials([
+                    file(credentialsId: env.AWS_CREDENTIALS_ID, variable: 'AWS_SHARED_CREDENTIALS_FILE'),
+                    string(credentialsId: 'grafana-admin-password', variable: 'GRAFANA_ADMIN_PASSWORD')
+                ]) {
+                    withEnv([
+                        "PATH+KUBECTL=${env.WORKSPACE}/.tools/bin",
+                        'AWS_PROFILE=default',
+                        "AWS_DEFAULT_REGION=${env.AWS_REGION}"
+                    ]) {
+                        sh '''
+                            set +x
+                            set -eu
+                            export KUBECONFIG="$WORKSPACE/.kube/config"
+
+                            if [ -z "$GRAFANA_ADMIN_PASSWORD" ]; then
+                                echo "The Grafana admin password credential is empty."
+                                exit 1
+                            fi
+
+                            kubectl create secret generic grafana-admin \
+                                --namespace student-management \
+                                --from-literal=admin-user=admin \
+                                --from-literal=admin-password="$GRAFANA_ADMIN_PASSWORD" \
+                                --dry-run=client -o yaml | kubectl apply -f -
+                            kubectl apply -f k8s/aws/monitoring.yaml
+                            kubectl rollout status deployment/prometheus \
+                                --namespace student-management \
+                                --timeout=5m
+                            kubectl rollout status deployment/grafana \
+                                --namespace student-management \
+                                --timeout=5m
+                            kubectl get service grafana prometheus \
+                                --namespace student-management
                         '''
                     }
                 }

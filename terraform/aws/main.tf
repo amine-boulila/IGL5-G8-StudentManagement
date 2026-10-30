@@ -121,10 +121,10 @@ resource "aws_eks_addon" "this" {
 
 resource "aws_security_group_rule" "application_node_port" {
   type              = "ingress"
-  description       = "Allow the application NodePort from the administrator CIDR"
+  description       = "Allow the application and Grafana NodePorts from the administrator CIDR"
   protocol          = "tcp"
   from_port         = 30089
-  to_port           = 30089
+  to_port           = 30090
   cidr_blocks       = [var.cluster_admin_cidr]
   security_group_id = aws_eks_cluster.this.vpc_config[0].cluster_security_group_id
 }

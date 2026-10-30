@@ -47,9 +47,12 @@ controller for a shared or production Jenkins instance.
    - The file must contain `MYSQL_DATABASE`, `MYSQL_USER`,
      `MYSQL_PASSWORD`, and `MYSQL_ROOT_PASSWORD` as `KEY=value` lines.
    - Use a non-root `MYSQL_USER`; never put the file in Git or pipeline logs.
-6. Revoke and replace any token previously pasted into a file, terminal, or
+6. Add a **Secret text** credential for Grafana:
+   - ID: `grafana-admin-password`
+   - Set a strong, unique Grafana administrator password.
+7. Revoke and replace any token previously pasted into a file, terminal, or
    chat. Never put a token in the Jenkinsfile or Git.
-7. Add a GitHub **Username with password** credential to the Jenkins global
+8. Add a GitHub **Username with password** credential to the Jenkins global
    store. The GitHub error in the checkout log indicates Jenkins needs
    authentication. You do not need to own the repository, but
    your GitHub account must already have access to it:
@@ -66,12 +69,12 @@ controller for a shared or production Jenkins instance.
      `github-repo-read`.
    - Do not select the SonarQube `Secret text` credential for Git checkout,
      and never put a token in the repository URL.
-8. In the **Pipeline script from SCM** job configuration, choose **Git**, set
+9. In the **Pipeline script from SCM** job configuration, choose **Git**, set
    the repository URL and branch to `feature/jenkins-pipeline`, and select
    `github-repo-read` for **Credentials**. Set **Script Path** to `Jenkinsfile`.
    The Jenkinsfile also uses this credential ID for its explicit checkout
    stage, so the ID must exist in the Jenkins global store.
-9. Save the job, select **Build Now**, and review the build log, JUnit test
+10. Save the job, select **Build Now**, and review the build log, JUnit test
    results, and archived JAR from the build page.
 
 If GitHub reports **Invalid username or token**, check that the selected
@@ -131,6 +134,13 @@ docker run -d --name jenkins `
 Do not add `-v` to `docker rm`; that would delete the persistent Jenkins
 volume. After Jenkins starts, verify `docker --version`, `docker info`,
 `aws --version`, and the saved Terraform binary from a Pipeline stage.
+
+The AWS deployment stage also installs Prometheus and Grafana. Add the Jenkins
+global **Secret text** credential `grafana-admin-password` before running that
+stage. Prometheus scrapes Spring Boot metrics through the internal
+`student-management-metrics` service; Grafana is exposed through NodePort
+`30090`, restricted by the EKS node security group to
+`AWS_CLUSTER_ADMIN_CIDR`. Prometheus and Grafana data use ephemeral storage.
 
 The AWS stages use Secret file credential `awscredentials` as the AWS shared
 credentials file and Terraform from
