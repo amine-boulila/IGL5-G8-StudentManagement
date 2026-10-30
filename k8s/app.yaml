@@ -15,6 +15,12 @@ spec:
       labels:
         app: student-management
     spec:
+      # initContainer : attend que MySQL accepte les connexions avant de lancer l'application
+      # (evite les redemarrages "CrashLoopBackOff" au premier deploiement)
+      initContainers:
+        - name: wait-for-mysql
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z mysql 3306; do echo "MySQL pas encore pret..."; sleep 3; done; echo "MySQL pret"']
       containers:
         - name: student-management
           image: IMAGE_PLACEHOLDER       # remplace par Jenkins : <dockerhub-user>/student-management:<build>
