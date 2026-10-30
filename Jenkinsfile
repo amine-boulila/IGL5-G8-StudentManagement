@@ -19,7 +19,6 @@ pipeline {
             steps {
                 git(
                     branch: 'feature/jenkins-pipeline',
-                    credentialsId: 'github-repo-read',
                     url: 'https://github.com/amine-boulila/IGL5-G8-StudentManagement.git'
                 )
             }
