@@ -108,3 +108,13 @@ Use `kubectl get nodes -o wide` to find a worker's public address.
 The Terraform EKS configuration creates a separate `student-management`
 cluster. It does not import, adopt, or modify the manually created
 `amazing-hiphop-rainbow` cluster.
+
+## Troubleshooting nodes not registering
+
+The pipeline waits up to 10 minutes for Kubernetes node objects to register
+after updating kubeconfig before waiting for them to become Ready. If no nodes
+register, it prints the node group names, status, desired size, and AWS health
+issues. Check that the selected cluster has a managed node group with desired
+size greater than zero, that the node role and trust relationship are valid,
+and that AWS Academy permits the required EKS/EC2 operations. A cluster with
+no worker nodes cannot run the application or Grafana workloads.

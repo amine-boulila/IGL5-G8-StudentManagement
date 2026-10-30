@@ -306,7 +306,46 @@ pipeline {
 
                             export KUBECONFIG="$WORKSPACE/.kube/config"
                             aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_DEFAULT_REGION" --kubeconfig "$KUBECONFIG" >/dev/null
+
+                            node_count=0
+                            for attempt in $(seq 1 40); do
+                                nodes="$("$kubectl" get nodes --no-headers)"
+                                if [ -n "$nodes" ]; then
+                                    node_count="$(printf '%s\n' "$nodes" | wc -l | tr -d '[:space:]')"
+                                fi
+                                if [ "$node_count" -gt 0 ]; then
+                                    break
+                                fi
+                                echo "Waiting for EKS worker nodes to register (${attempt}/40)."
+                                if [ "$attempt" -lt 40 ]; then
+                                    sleep 15
+                                fi
+                            done
+
+                            if [ "$node_count" -eq 0 ]; then
+                                echo "No Kubernetes nodes registered after 10 minutes."
+                                "$kubectl" get nodes -o wide
+                                nodegroups="$(aws eks list-nodegroups \
+                                    --cluster-name "$EKS_CLUSTER_NAME" \
+                                    --query 'nodegroups[]' \
+                                    --output text)"
+                                if [ -z "$nodegroups" ] || [ "$nodegroups" = "None" ]; then
+                                    echo "The EKS cluster has no managed node groups."
+                                else
+                                    for nodegroup in $nodegroups; do
+                                        echo "EKS node group diagnostics: $nodegroup"
+                                        aws eks describe-nodegroup \
+                                            --cluster-name "$EKS_CLUSTER_NAME" \
+                                            --nodegroup-name "$nodegroup" \
+                                            --query 'nodegroup.{status:status,desired:scalingConfig.desiredSize,healthIssues:health.issues}' \
+                                            --output json
+                                    done
+                                fi
+                                exit 1
+                            fi
+
                             "$kubectl" wait --for=condition=Ready nodes --all --timeout=10m
+                            "$kubectl" get nodes -o wide
 
 
 
