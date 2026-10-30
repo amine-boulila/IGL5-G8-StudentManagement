@@ -49,3 +49,6 @@ terraform/**/.terraform/
 terraform/**/*.tfstate
 terraform/**/*.tfstate.*
 terraform/**/.terraform.lock.hcl
+Student Management - Livraison DevOps commandes.pptx
+Student Management - Livraison DevOps corrige.pptx
+Student-Management-Technology-Guide.pptx
