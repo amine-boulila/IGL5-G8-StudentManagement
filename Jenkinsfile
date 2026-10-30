@@ -14,11 +14,6 @@ pipeline {
         )
     }
 
-    tools {
-        maven 'Maven3'
-        jdk 'JDK17'
-    }
-
     stages {
         stage('1 - Git Checkout') {
             steps {
