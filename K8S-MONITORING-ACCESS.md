@@ -1,4 +1,4 @@
-# Connect to EKS and open Grafana and Prometheus
+# Connect to EKS and open Grafana and Prometheuss
 
 These commands are for **Windows PowerShell**. Start a fresh AWS Academy lab session first. Keep your access key, secret key, and session token private; never commit them to the repository.
 
