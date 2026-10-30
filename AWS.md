@@ -73,9 +73,11 @@ approved public IPv4 CIDR. The defaults create `student-management` and deploy
 to it. The ordered stages check out code, clean/build/test, analyze with
 SonarQube, publish to Nexus, build and push the Docker Hub image, verify AWS
 credentials, provision EKS using Terraform, update kubeconfig, deploy MySQL
-and the application, then deploy Prometheus and Grafana. AWS shared
-credentials are supplied through `AWS_SHARED_CREDENTIALS_FILE`; credential
-contents are not printed or copied into environment variables.
+and the application, deploy Prometheus and Grafana, then send ten safe GET
+requests to the EKS student API so the HTTP request-rate dashboard has sample
+traffic. AWS shared credentials are supplied through
+`AWS_SHARED_CREDENTIALS_FILE`; credential contents are not printed or copied
+into environment variables.
 
 The AWS identity must be authorized to create VPC and EKS resources and pass
 the existing IAM roles, then access the resulting EKS cluster for Kubernetes

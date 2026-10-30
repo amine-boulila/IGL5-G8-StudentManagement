@@ -443,6 +443,70 @@ pipeline {
                     }
                 }
             }
+
+            stage('GENERATE EKS HTTP METRICS') {
+                when {
+                    expression { params.DEPLOY_TO_EKS }
+                }
+                steps {
+                    withCredentials([file(
+                        credentialsId: env.AWS_CREDENTIALS_ID,
+                        variable: 'AWS_SHARED_CREDENTIALS_FILE'
+                    )]) {
+                        withEnv([
+                            "PATH+KUBECTL=${env.WORKSPACE}/.tools/bin",
+                            'AWS_PROFILE=default',
+                            "AWS_DEFAULT_REGION=${env.AWS_REGION}"
+                        ]) {
+                            sh '''
+                                set -eu
+                                export KUBECONFIG="$WORKSPACE/.kube/config"
+                                port_forward_log="$WORKSPACE/.tools/port-forward.log"
+
+                                kubectl port-forward \
+                                    --address 127.0.0.1 \
+                                    --namespace student-management \
+                                    service/student-management \
+                                    18089:8089 >"$port_forward_log" 2>&1 &
+                                port_forward_pid=$!
+                                trap 'kill "$port_forward_pid" 2>/dev/null || true; wait "$port_forward_pid" 2>/dev/null || true; rm -f "$port_forward_log"' EXIT
+
+                                ready=false
+                                for attempt in $(seq 1 30); do
+                                    if ! kill -0 "$port_forward_pid" 2>/dev/null; then
+                                        cat "$port_forward_log"
+                                        echo "kubectl port-forward exited before becoming ready."
+                                        exit 1
+                                    fi
+                                    if curl --silent --fail --output /dev/null \
+                                        http://127.0.0.1:18089/student/students/getAllStudents; then
+                                        ready=true
+                                        break
+                                    fi
+                                    sleep 2
+                                done
+
+                                if [ "$ready" != "true" ]; then
+                                    cat "$port_forward_log"
+                                    echo "The EKS student API did not respond successfully."
+                                    exit 1
+                                fi
+
+                                for request in $(seq 1 10); do
+                                    status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+                                        http://127.0.0.1:18089/student/students/getAllStudents)"
+                                    if [ "$status" != "200" ]; then
+                                        echo "EKS GET request $request returned HTTP $status."
+                                        exit 1
+                                    fi
+                                    echo "EKS GET request $request returned HTTP 200."
+                                    sleep 2
+                                done
+                            '''
+                        }
+                    }
+                }
+            }
         }
     }
 

@@ -10,6 +10,7 @@ import tn.esprit.studentmanagement.entities.Status;
 import tn.esprit.studentmanagement.repositories.EnrollmentRepository;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
@@ -18,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -92,6 +94,51 @@ class EnrollmentServiceMockitoTest {
         assertThrows(NoSuchElementException.class, () -> enrollmentService.getEnrollmentById(99L));
 
         verify(enrollmentRepository).findById(99L);
+        verifyNoMoreInteractions(enrollmentRepository);
+    }
+
+    @Test
+    void getAllEnrollmentsShouldReturnRepositoryResults() {
+        List<Enrollment> enrollments = List.of(createEnrollment(1L, 15.5, Status.ACTIVE));
+        when(enrollmentRepository.findAll()).thenReturn(enrollments);
+
+        assertEquals(enrollments, enrollmentService.getAllEnrollments());
+
+        verify(enrollmentRepository).findAll();
+        verifyNoMoreInteractions(enrollmentRepository);
+    }
+
+    @Test
+    void getAllEnrollmentsShouldRethrowRepositoryFailure() {
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        when(enrollmentRepository.findAll()).thenThrow(failure);
+
+        assertEquals(failure, assertThrows(IllegalStateException.class, () -> enrollmentService.getAllEnrollments()));
+
+        verify(enrollmentRepository).findAll();
+        verifyNoMoreInteractions(enrollmentRepository);
+    }
+
+    @Test
+    void saveEnrollmentShouldRethrowRepositoryFailure() {
+        Enrollment enrollment = createEnrollment(null, 15.5, Status.ACTIVE);
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        when(enrollmentRepository.save(enrollment)).thenThrow(failure);
+
+        assertEquals(failure, assertThrows(IllegalStateException.class, () -> enrollmentService.saveEnrollment(enrollment)));
+
+        verify(enrollmentRepository).save(enrollment);
+        verifyNoMoreInteractions(enrollmentRepository);
+    }
+
+    @Test
+    void deleteEnrollmentShouldRethrowRepositoryFailure() {
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        doThrow(failure).when(enrollmentRepository).deleteById(7L);
+
+        assertEquals(failure, assertThrows(IllegalStateException.class, () -> enrollmentService.deleteEnrollment(7L)));
+
+        verify(enrollmentRepository).deleteById(7L);
         verifyNoMoreInteractions(enrollmentRepository);
     }
 

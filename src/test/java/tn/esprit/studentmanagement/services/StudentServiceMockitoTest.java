@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -94,6 +95,39 @@ class StudentServiceMockitoTest {
 
         assertEquals(failure, thrown);
         verify(studentRepository).save(student);
+        verifyNoMoreInteractions(studentRepository);
+    }
+
+    @Test
+    void getAllStudentsShouldRethrowRepositoryFailure() {
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        when(studentRepository.findAll()).thenThrow(failure);
+
+        assertEquals(failure, assertThrows(IllegalStateException.class, () -> studentService.getAllStudents()));
+
+        verify(studentRepository).findAll();
+        verifyNoMoreInteractions(studentRepository);
+    }
+
+    @Test
+    void getStudentByIdShouldRethrowRepositoryFailure() {
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        when(studentRepository.findById(7L)).thenThrow(failure);
+
+        assertEquals(failure, assertThrows(IllegalStateException.class, () -> studentService.getStudentById(7L)));
+
+        verify(studentRepository).findById(7L);
+        verifyNoMoreInteractions(studentRepository);
+    }
+
+    @Test
+    void deleteStudentShouldRethrowRepositoryFailure() {
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        doThrow(failure).when(studentRepository).deleteById(7L);
+
+        assertEquals(failure, assertThrows(IllegalStateException.class, () -> studentService.deleteStudent(7L)));
+
+        verify(studentRepository).deleteById(7L);
         verifyNoMoreInteractions(studentRepository);
     }
 
