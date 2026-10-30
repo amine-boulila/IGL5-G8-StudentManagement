@@ -14,6 +14,10 @@ pipeline {
         )
     }
 
+    triggers {
+        githubPush()
+    }
+
     tools {
         maven 'Maven3'
         jdk 'JDK17'
