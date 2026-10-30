@@ -49,8 +49,9 @@ controller for a shared or production Jenkins instance.
    - Use a non-root `MYSQL_USER`; never put the file in Git or pipeline logs.
 6. Revoke and replace any token previously pasted into a file, terminal, or
    chat. Never put a token in the Jenkinsfile or Git.
-7. If the GitHub repository is private, add a separate repository credential
-   to the Jenkins global store. You do not need to own the repository, but
+7. Add a GitHub **Username with password** credential to the Jenkins global
+   store. The GitHub error in the checkout log indicates Jenkins needs
+   authentication. You do not need to own the repository, but
    your GitHub account must already have access to it:
    - Create a fine-grained personal access token for the repository owner's
      account or organization, select this repository, and grant
@@ -65,11 +66,11 @@ controller for a shared or production Jenkins instance.
      `github-repo-read`.
    - Do not select the SonarQube `Secret text` credential for Git checkout,
      and never put a token in the repository URL.
-8. Create a **Pipeline** job. Under **Pipeline**, choose **Pipeline script from
-   SCM**, select **Git**, enter this repository's clone URL and the branch to
-   build, select the working GitHub credential, and set **Script Path** to
-   `Jenkinsfile`. The pipeline reuses this SCM configuration for its checkout;
-   it does not need a second credential ID in the Jenkinsfile.
+8. In the **Pipeline script from SCM** job configuration, choose **Git**, set
+   the repository URL and branch to `feature/jenkins-pipeline`, and select
+   `github-repo-read` for **Credentials**. Set **Script Path** to `Jenkinsfile`.
+   The Jenkinsfile also uses this credential ID for its explicit checkout
+   stage, so the ID must exist in the Jenkins global store.
 9. Save the job, select **Build Now**, and review the build log, JUnit test
    results, and archived JAR from the build page.
 
@@ -79,8 +80,9 @@ username is your GitHub username, and that the token has read access to this
 repository and has not expired or been revoked. Confirm your collaborator
 access is still active and ask the repository owner or organization admin
 whether the token needs approval. Do not paste the token into chat or build
-logs. For a public repository, leave **Credentials** as **none** instead of
-supplying a token.
+logs. If a valid credential exists but Jenkins still reports that it cannot
+find it, verify the credential is stored in this Jenkins controller's global
+store and that the ID matches exactly.
 
 The Jenkins container must be able to reach SonarQube at
 `http://host.docker.internal:9000`. This route was verified from the current
