@@ -8,11 +8,19 @@ untouched. By default Terraform creates a separate cluster named
 cluster. The pipeline builds the application image and pushes it to the Docker
 Hub `student-management` repository before any AWS stages.
 
-The Terraform configuration creates a VPC, EKS control plane, one `t3.medium`
-worker node, and the EBS CSI driver. Worker nodes run in public subnets to
-avoid NAT Gateway charges; no SSH access is configured. The EKS API and
-application NodePort are restricted to `AWS_CLUSTER_ADMIN_CIDR`. EKS
-control-plane, EC2, and EBS storage incur AWS charges.
+The Terraform configuration creates a VPC, EKS control plane, and one
+`t3.medium` managed worker node group. It reuses the existing AWS Academy
+control-plane and worker IAM roles instead of creating roles. Worker nodes
+run in public subnets to avoid NAT Gateway charges; no SSH access is
+configured. The EKS API and application NodePort are restricted to
+`AWS_CLUSTER_ADMIN_CIDR`. The EBS CSI add-on is disabled. EKS control-plane
+and EC2 resources incur AWS charges.
+
+The standard EKS module was replaced with AWS provider resources because that
+module queries the caller's IAM session role with `iam:GetRole`, which AWS
+Academy explicitly denies. Terraform does not create or inspect IAM roles in
+this configuration; AWS still needs to allow the Academy role to create the
+network/EKS resources and pass the two pre-existing roles to EKS.
 
 The pipeline defaults to enabling both `PROVISION_EKS_WITH_TERRAFORM` and
 `DEPLOY_TO_EKS`. Terraform runs plan and immediately applies that exact saved
@@ -35,9 +43,16 @@ IPv4 CIDR (typically `address/32`) in `AWS_CLUSTER_ADMIN_CIDR`.
   an AWS shared-credentials INI file containing a `[default]` profile. Keep
   the file private and never print its contents in pipeline logs.
 - The AWS credentials must belong to an account/role authorized to describe
-  the cluster, obtain an EKS token, and deploy Kubernetes resources. Terraform
-  provisioning additionally needs permissions to create VPC, IAM, EKS, and
-  EBS resources.
+  the cluster, obtain an EKS token, and deploy Kubernetes resources. For
+  provisioning, the Academy role also needs permission to create the VPC,
+  subnets, routes, security-group rule, EKS cluster, managed node group,
+  add-ons, access entry, and access-policy association, and `iam:PassRole`
+  for the two pre-existing Academy EKS roles. An Academy explicit deny can
+  still prevent one or more of these operations.
+- The configured control-plane role must trust `eks.amazonaws.com` and have
+  the EKS cluster service policy. The worker role must trust `ec2.amazonaws.com`
+  and have `AmazonEKSWorkerNodePolicy`,
+  `AmazonEC2ContainerRegistryReadOnly`, and `AmazonEKS_CNI_Policy`.
 - Jenkins has a Secret file credential with ID `aws-mysql-env`, containing
   `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`, and
   `MYSQL_ROOT_PASSWORD` as dotenv-style `KEY=value` lines. Use a non-root
@@ -68,9 +83,10 @@ can leave AWS resources unmanaged.
 
 ## Current scope
 
-The deployment uses a single MySQL StatefulSet with a 4 GiB gp3 EBS volume
-and one Spring Boot replica. The app is exposed as NodePort `30089`; ensure
-the node security group allows this port from the intended client addresses.
+The deployment uses a single MySQL Deployment with ephemeral `emptyDir`
+storage and one Spring Boot replica. **MySQL data is lost if its pod is
+recreated or the node is replaced.** The app is exposed as NodePort `30089`;
+ensure the node security group allows this port from the intended client addresses.
 Use `kubectl get nodes -o wide` to find a worker's public address; the app is
 available at `http://<node-public-ip>:30089/student/swagger-ui/index.html`.
 

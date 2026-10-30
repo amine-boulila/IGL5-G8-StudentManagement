@@ -5,10 +5,10 @@ output "aws_region" {
 
 output "cluster_name" {
   description = "EKS cluster name."
-  value       = module.eks.cluster_name
+  value       = aws_eks_cluster.this.name
 }
 
 output "cluster_endpoint" {
   description = "Kubernetes API endpoint. Access is restricted to cluster_admin_cidr."
-  value       = module.eks.cluster_endpoint
+  value       = aws_eks_cluster.this.endpoint
 }

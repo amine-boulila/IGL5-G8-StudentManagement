@@ -245,6 +245,7 @@ pipeline {
                         'PATH+TERRAFORM=/var/jenkins_home/tools/terraform/1.17.0',
                         'AWS_PROFILE=default',
                         "AWS_DEFAULT_REGION=${env.AWS_REGION}",
+                        "TF_VAR_cluster_name=${params.EKS_CLUSTER_NAME}",
                         "TF_VAR_cluster_admin_cidr=${params.AWS_CLUSTER_ADMIN_CIDR}"
                     ]) {
                         dir('terraform/aws') {
