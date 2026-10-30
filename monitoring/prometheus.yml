@@ -6,3 +6,5 @@ scrape_configs:
     metrics_path: /student/actuator/prometheus
     static_configs:
       - targets: ["student-management:8089"]
+        labels:
+          application: student-management
