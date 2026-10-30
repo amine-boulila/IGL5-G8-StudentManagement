@@ -2,7 +2,6 @@ package tn.esprit.studentmanagement.services;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import tn.esprit.studentmanagement.entities.Course;
 import tn.esprit.studentmanagement.repositories.CourseRepository;
@@ -13,8 +12,11 @@ import java.util.List;
 public class CourseService implements ICourseService {
     private static final Logger logger = LogManager.getLogger(CourseService.class);
 
-    @Autowired
-    private CourseRepository courseRepository;
+    private final CourseRepository courseRepository;
+
+    public CourseService(CourseRepository courseRepository) {
+        this.courseRepository = courseRepository;
+    }
 
     @Override
     public List<Course> getAllCourses() {
