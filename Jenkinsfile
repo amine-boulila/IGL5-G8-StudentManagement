@@ -130,12 +130,15 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-cred',
                                                   usernameVariable: 'DOCKER_USER',
                                                   passwordVariable: 'DOCKER_PASS')]) {
-                    sh '''
-                        echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                        docker push $DOCKER_USER/$IMAGE_NAME:$BUILD_NUMBER
-                        docker push $DOCKER_USER/$IMAGE_NAME:latest
-                        docker logout
-                    '''
+                    sh 'echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin'
+                    // retry : relance le push en cas de coupure reseau (timeout vers Docker Hub)
+                    retry(3) {
+                        sh 'docker push $DOCKER_USER/$IMAGE_NAME:$BUILD_NUMBER'
+                    }
+                    retry(3) {
+                        sh 'docker push $DOCKER_USER/$IMAGE_NAME:latest'
+                    }
+                    sh 'docker logout'
                 }
             }
         }
