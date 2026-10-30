@@ -387,7 +387,7 @@ pipeline {
                                 --from-env-file="$MYSQL_ENV_FILE" \
                                 --dry-run=client -o yaml | kubectl apply -f -
                             kubectl apply -f k8s/aws/mysql.yaml
-                            kubectl rollout status statefulset/mysql --namespace student-management --timeout=10m
+                            kubectl rollout status deployment/mysql --namespace student-management --timeout=10m
 
                             image="$DOCKERHUB_USERNAME/student-management:${BUILD_NUMBER}"
                             sed "s|__IMAGE__|${image}|g" k8s/aws/app.yaml | kubectl apply -f -
