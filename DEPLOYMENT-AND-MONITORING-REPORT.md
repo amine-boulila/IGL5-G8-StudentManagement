@@ -63,8 +63,24 @@ AWS hostname or IP:
 kubectl get service student-management -n student-management
 ```
 
-Use the value in `EXTERNAL-IP` in the API URL. EKS commonly returns a load
-balancer hostname rather than a numeric IP. A read-only GET request is:
+If `EXTERNAL-IP` shows an AWS hostname and you need its current numeric IP,
+resolve the hostname from the Service. This PowerShell command handles either
+an AWS hostname or an IP already reported by Kubernetes:
+
+```powershell
+$service = kubectl get service student-management -n student-management -o json | ConvertFrom-Json
+$ingress = $service.status.loadBalancer.ingress[0]
+if ($ingress.hostname) {
+  Resolve-DnsName $ingress.hostname -Type A | Select-Object -ExpandProperty IPAddress -Unique
+} elseif ($ingress.ip) {
+  $ingress.ip
+}
+```
+
+AWS load balancer IP addresses can change, so use the hostname shown in
+`EXTERNAL-IP` for the API URL whenever possible. Replace `<EXTERNAL-IP>` below
+with that hostname (or a resolved IP if specifically needed). A read-only GET
+request is:
 
 ```powershell
 Invoke-RestMethod `
